@@ -129,7 +129,10 @@ async fn run() -> mcpx::Result<u8> {
         return tokio::select! {result=operation=>result,_=tokio::signal::ctrl_c()=>Err(Error::local("Cancelled","OAuth operation cancelled"))};
     }
     let tool = invocation.tool();
-    let listing = matches!(invocation.route, crate::routing::Route::Tools { .. });
+    let listing = matches!(
+        invocation.route,
+        crate::routing::Route::Tools { .. } | crate::routing::Route::ServerHelp { .. }
+    );
     let completion = match &invocation.route {
         crate::routing::Route::Complete { line, cursor, .. } => Some((line, *cursor)),
         _ => None,
@@ -209,6 +212,10 @@ async fn run() -> mcpx::Result<u8> {
         }
         if listing {
             let tools: Vec<_> = remote.machine().catalog().tools().collect();
+            if matches!(invocation.route, crate::routing::Route::ServerHelp { .. }) {
+                crate::shared::print_server_help(&invocation, &tools);
+                return Ok(0);
+            }
             if output == "text" {for tool in tools {println!("{}\t{}", safe(&tool.name), safe(tool.description.as_deref().unwrap_or("")));}}
             else if output == "ndjson-events" {println!("{}", json!({"type":"catalog","tools":tools}));}
             else {print_json(&tools);}

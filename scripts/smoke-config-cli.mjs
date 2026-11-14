@@ -132,6 +132,12 @@ env={ACCESS_TOKEN="do-not-print-environment"}
       const count=(alias==="demo"?modern:legacy).requests.filter(r=>r.method==="tools/call").length;
       assert.ok(JSON.parse(ok(await execute([...base,"tools",alias]))).some(t=>t.name==="echo"));
       assert.match(ok(await execute([...base,alias,"echo","--help"])),/--message/);
+      for (const flag of ["-h", "--help"]) {
+        const help=ok(await execute([...base,alias,flag]));
+        assert.match(help,/Commands:/);
+        assert.match(help,/echo/);
+        assert.ok(help.includes(`Usage: mcpx ${alias}`));
+      }
       assert.equal(JSON.parse(ok(await execute([...base,"complete",alias,"--line","echo --mode tw"]))).candidates[0].value,"two words");
       assert.equal(JSON.parse(ok(await execute([...base,"complete",alias,"--line","--args-file"]))).candidates.length,0);
       fail(await execute([...base,alias,"echo","--args",'{"message":3}']),2,"ValidationFailed");

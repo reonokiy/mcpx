@@ -35,6 +35,9 @@ pub enum Route {
         file_store: bool,
         redirect_port: Option<u16>,
     },
+    ServerHelp {
+        alias: Option<String>,
+    },
     Tools {
         alias: Option<String>,
     },
@@ -66,6 +69,7 @@ impl Invocation {
             Route::Servers | Route::Profiles | Route::UseProfile { .. } | Route::Add { .. } => None,
             Route::Auth { alias, .. } => alias.as_deref(),
             Route::Shell { alias, .. }
+            | Route::ServerHelp { alias }
             | Route::Tools { alias }
             | Route::Complete { alias, .. }
             | Route::Call { alias, .. } => alias.as_deref(),
@@ -600,13 +604,19 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
                 ),
             ));
         }
-        let (tool, arguments) = argv
-            .split_first()
-            .ok_or_else(|| Error::local("CommandParseError", "expected SERVER TOOL"))?;
-        Route::Call {
-            alias: Some(route.into()),
-            tool: tool.clone(),
-            arguments: arguments.into(),
+        if argv.len() == 1 && matches!(argv[0].as_str(), "-h" | "--help") {
+            Route::ServerHelp {
+                alias: Some(route.into()),
+            }
+        } else {
+            let (tool, arguments) = argv
+                .split_first()
+                .ok_or_else(|| Error::local("CommandParseError", "expected SERVER TOOL"))?;
+            Route::Call {
+                alias: Some(route.into()),
+                tool: tool.clone(),
+                arguments: arguments.into(),
+            }
         }
     };
     Ok(Some(invocation(&matches, route)))

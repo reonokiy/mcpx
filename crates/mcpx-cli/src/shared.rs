@@ -84,6 +84,28 @@ pub(crate) fn print_profiles<S>(
     }
 }
 
+pub(crate) fn print_server_help(
+    invocation: &crate::routing::Invocation,
+    tools: &[&mcpx::ToolDescriptor],
+) {
+    let server = invocation.alias().unwrap_or("SERVER");
+    let mut command = clap::Command::new(safe(server))
+        .bin_name(format!("mcpx {}", safe(server)))
+        .about("Call a tool on this MCP server")
+        .subcommand_value_name("TOOL")
+        .disable_help_subcommand(true)
+        .subcommand_required(true)
+        .after_help("Use TOOL --help to show that tool's parameters.");
+    for tool in tools {
+        let spec = mcpx::command::CommandSpec::from_descriptor(tool);
+        command = command.subcommand(
+            clap::Command::new(safe(&spec.tool))
+                .about(spec.description.lines().next().unwrap_or("").to_owned()),
+        );
+    }
+    print!("{}", command.render_help());
+}
+
 pub(crate) fn print_servers<'a>(
     servers: impl Iterator<Item = (&'a str, &'static str)>,
     output: &str,
