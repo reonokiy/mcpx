@@ -229,7 +229,7 @@ async fn run() -> mcpx::Result<u8> {
                 crate::shared::print_server_help(&invocation, &tools);
                 return Ok(0);
             }
-            if output == "text" {for tool in tools {println!("{}\t{}", safe(&tool.name), safe(tool.description.as_deref().unwrap_or("")));}}
+            if output == "text" {crate::shared::print_tools(&tools);}
             else if output == "ndjson-events" {println!("{}", json!({"type":"catalog","tools":tools}));}
             else {print_json(&tools);}
             return Ok(0);

@@ -177,15 +177,7 @@ async fn run() -> mcpx::Result<u8> {
                 return Ok(0);
             }
             match output {
-                "text" => {
-                    for tool in tools {
-                        println!(
-                            "{}\t{}",
-                            safe(&tool.name),
-                            safe(tool.description.as_deref().unwrap_or(""))
-                        );
-                    }
-                }
+                "text" => crate::shared::print_tools(&tools),
                 "ndjson-events" => println!("{}", json!({"type":"catalog","tools":tools})),
                 _ => print_json(&tools),
             }

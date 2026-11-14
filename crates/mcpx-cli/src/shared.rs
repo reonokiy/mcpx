@@ -84,6 +84,52 @@ pub(crate) fn print_profiles<S>(
     }
 }
 
+/// Render full descriptions as separate, wrapped blocks rather than tabular rows.
+fn tool_listing(tools: &[&mcpx::ToolDescriptor], width: usize) -> String {
+    use std::fmt::Write;
+    let mut output = String::new();
+    let width = width.saturating_sub(2).max(20);
+    for tool in tools {
+        writeln!(output, "{}", safe(&tool.name).replace(['\n', '\t'], " ")).unwrap();
+        let description = safe(tool.description.as_deref().unwrap_or(""));
+        for line in description.lines() {
+            if line.trim().is_empty() {
+                output.push('\n');
+                continue;
+            }
+            let mut column = 0;
+            for word in line.split_whitespace() {
+                let length = word.chars().count();
+                if column != 0 && column + 1 + length > width {
+                    output.push('\n');
+                    column = 0;
+                }
+                if column == 0 {
+                    output.push_str("  ");
+                } else {
+                    output.push(' ');
+                    column += 1;
+                }
+                // Keep long URLs and identifiers intact; terminals can wrap them.
+                output.push_str(word);
+                column += length;
+            }
+            output.push('\n');
+        }
+        output.push('\n');
+    }
+    output
+}
+
+pub(crate) fn print_tools(tools: &[&mcpx::ToolDescriptor]) {
+    let width = std::env::var("COLUMNS")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(88)
+        .clamp(40, 160);
+    print!("{}", tool_listing(tools, width));
+}
+
 pub(crate) fn print_server_help(
     invocation: &crate::routing::Invocation,
     tools: &[&mcpx::ToolDescriptor],
@@ -303,4 +349,33 @@ pub(crate) fn schema_registry(file: &str) -> mcpx::Result<mcpx::SchemaRegistry> 
     let text = std::str::from_utf8(&bytes)
         .map_err(|_| Error::local("ConfigurationError", "schema bundle must be UTF-8 JSON"))?;
     mcpx::SchemaRegistry::from_json(text)
+}
+
+#[cfg(test)]
+mod tool_listing_tests {
+    #[test]
+    fn full_descriptions_keep_paragraphs_and_tool_boundaries() {
+        let first: mcpx::ToolDescriptor = serde_json::from_value(serde_json::json!({
+            "name":"first", "description":"A paragraph with enough words to wrap over multiple lines without losing any of its content.\n\nSecond paragraph: \u{1b}[31m end marker.", "inputSchema":{"type":"object"}
+        })).unwrap();
+        let second: mcpx::ToolDescriptor = serde_json::from_value(serde_json::json!({
+            "name":"second", "description":"Another tool.", "inputSchema":{"type":"object"}
+        }))
+        .unwrap();
+        let output = super::tool_listing(&[&first, &second], 48);
+        assert!(output.starts_with("first\n  A paragraph"));
+        assert!(output.contains("\n\n  Second paragraph:"));
+        assert!(output.contains("end marker.\n\nsecond\n  Another tool."));
+        assert!(!output.contains('\u{1b}'));
+        for word in first
+            .description
+            .as_ref()
+            .unwrap()
+            .split_whitespace()
+            .filter(|w| !w.contains('\u{1b}'))
+        {
+            assert!(output.contains(word), "missing word: {word}");
+        }
+        assert!(output.lines().all(|line| line.chars().count() <= 48));
+    }
 }
