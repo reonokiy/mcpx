@@ -487,7 +487,7 @@ CI 对原生、wasm32-unknown-unknown 和 wasm32-wasip2 分开构建并检查依
 | M4 兼容与 stdio | 2025-11-25 独立策略、自动探测、原生子进程、目录失效 | 版本边界、认证、session 和进程测试通过 |
 | M5 首版发布准备 | 凭据注入、限额、文档、examples、锁版本与 CI | 满足首版发布条件，明确列出剩余能力 |
 
-WASI 独立 CLI、远程 SchemaRegistry、持久化缓存、通用 OAuth 登录、jco 组件分发和更多 MCP 特性在首版之后单独评估，不应成为 M1 的前置依赖。
+WASI 独立 CLI、远程 SchemaRegistry、持久化缓存、jco 组件分发和更多 MCP 特性在首版之后单独评估，不应成为 M1 的前置依赖。
 
 ## 20 待验证决策
 
@@ -514,3 +514,6 @@ WASI 独立 CLI、远程 SchemaRegistry、持久化缓存、通用 OAuth 登录�
 - [clap Builder API](https://docs.rs/clap/latest/clap/_tutorial/index.html)
 - [Rust WASIp2 target](https://doc.rust-lang.org/rustc/platform-support/wasm32-wasip2.html)
 - [jco 组件转换](https://bytecodealliance.github.io/jco/transpiling.html)
+
+
+OAuth 优先级已调整为 P0：alpha.2 首先交付原生 CLI 登录/刷新、身份隔离和共享授权协议；浏览器/WASI 交互由各宿主适配，详见 implementation-status.md 与 README 的 OAuth 说明。

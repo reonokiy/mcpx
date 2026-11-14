@@ -21,6 +21,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh fish
       - run: bash scripts/install-wasmtime.sh
       - run: node scripts/smoke-native.mjs
+      - run: node scripts/smoke-oauth.mjs
       - run: node scripts/smoke-library.mjs
       - run: node scripts/smoke-wasi-cli.mjs
       - run: node scripts/smoke-wasi-notifications.mjs
@@ -56,6 +57,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh fish
       - run: node scripts/smoke-shells.mjs native
       - run: node scripts/smoke-native.mjs
+      - run: node scripts/smoke-oauth.mjs
       - run: node scripts/smoke-config-cli.mjs native
       - run: cargo build -p mcpx-native --examples --locked
       - run: node scripts/smoke-library.mjs

@@ -38,6 +38,87 @@ async fn run() -> mcpx::Result<u8> {
         .as_ref()
         .map(|config| config.server(alias.unwrap()))
         .transpose()?;
+    let endpoint = if let Some(url) = url {
+        Some(url.as_str())
+    } else {
+        match configured {
+            Some(mcpx::native::ServerConfig::Http { url, .. }) => Some(url.as_str()),
+            _ => None,
+        }
+    };
+    let reference = match configured {
+        Some(mcpx::native::ServerConfig::Http { credential, .. }) => credential.as_deref(),
+        _ => None,
+    };
+    let profile = invocation
+        .profile
+        .as_deref()
+        .or_else(|| reference.and_then(|r| r.strip_prefix("oauth:")))
+        .unwrap_or("default");
+    if let crate::routing::Route::Auth {
+        action,
+        client_id,
+        scopes,
+        no_browser,
+        file_store,
+        redirect_port,
+        ..
+    } = &invocation.route
+    {
+        let endpoint = endpoint.ok_or_else(|| {
+            Error::local(
+                "CapabilityUnavailable",
+                "OAuth is supported for HTTP servers; stdio uses environment credentials",
+            )
+        })?;
+        let operation = async {
+            match action.as_str() {
+                "login" => {
+                    mcpx::native::oauth::login(
+                        endpoint,
+                        mcpx::native::oauth::LoginOptions {
+                            client_id: client_id.clone(),
+                            scopes: scopes.clone(),
+                            no_browser: *no_browser,
+                            redirect_port: *redirect_port,
+                            profile: Some(profile.into()),
+                            store: if *file_store {
+                                mcpx::native::oauth::StoreKind::File
+                            } else {
+                                mcpx::native::oauth::StoreKind::Keyring
+                            },
+                        },
+                        |url| eprintln!("Open this URL to authorize mcpx:\n{}", safe(url)),
+                        invocation.timeout,
+                    )
+                    .await?;
+                    println!("Logged in.");
+                }
+                "status" => {
+                    let state = mcpx::native::oauth::status_profile(endpoint, profile).await?;
+                    if output == "text" {
+                        println!(
+                            "{}",
+                            if state["logged_in"] == true {
+                                "Logged in."
+                            } else {
+                                "Not logged in."
+                            }
+                        );
+                    } else {
+                        print_json(&state);
+                    }
+                }
+                "logout" => {
+                    mcpx::native::oauth::logout_profile(endpoint, profile).await?;
+                    println!("Logged out.");
+                }
+                _ => unreachable!(),
+            }
+            Ok::<u8, Error>(0)
+        };
+        return tokio::select! {result=operation=>result,_=tokio::signal::ctrl_c()=>Err(Error::local("Cancelled","OAuth operation cancelled"))};
+    }
     let tool = invocation.tool();
     let listing = matches!(invocation.route, crate::routing::Route::Tools { .. });
     let completion = match &invocation.route {
@@ -66,6 +147,23 @@ async fn run() -> mcpx::Result<u8> {
                 "token environment variable is unavailable",
             )
         })?);
+    }
+    if invocation.token_env.is_none() {
+        let reference = match configured {
+            Some(mcpx::native::ServerConfig::Http { credential, .. }) => credential.as_deref(),
+            _ => None,
+        };
+        if let Some(endpoint) = endpoint
+            && (reference.is_some_and(|r| r == "oauth" || r.starts_with("oauth:"))
+                || reference.is_none()
+                    && mcpx::native::oauth::OAuthCredentialProvider::has_profile(
+                        endpoint, profile,
+                    )?)
+        {
+            client = client.with_credential_provider(
+                mcpx::native::oauth::OAuthCredentialProvider::for_profile(endpoint, profile)?,
+            );
+        }
     }
     let selected = invocation.selected;
     let connect = async {

@@ -12,6 +12,17 @@ pub enum Route {
         bash_current: Option<crate::shell::BashWord>,
     },
     Servers,
+    // Native UI fields are parsed on WASI only to return a clear capability error.
+    #[cfg_attr(all(target_os = "wasi", target_env = "p2"), allow(dead_code))]
+    Auth {
+        alias: Option<String>,
+        action: String,
+        client_id: Option<String>,
+        scopes: Vec<String>,
+        no_browser: bool,
+        file_store: bool,
+        redirect_port: Option<u16>,
+    },
     Tools {
         alias: Option<String>,
     },
@@ -33,6 +44,7 @@ pub struct Invocation {
     pub output: String,
     pub timeout: Duration,
     pub token_env: Option<String>,
+    pub profile: Option<String>,
     pub schema_registry: Option<String>,
     pub route: Route,
 }
@@ -40,6 +52,7 @@ impl Invocation {
     pub fn alias(&self) -> Option<&str> {
         match &self.route {
             Route::Servers => None,
+            Route::Auth { alias, .. } => alias.as_deref(),
             Route::Shell { alias, .. }
             | Route::Tools { alias }
             | Route::Complete { alias, .. }
@@ -61,7 +74,7 @@ impl Invocation {
 }
 
 pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
-    let help = "mcpx --config mcpx.toml SERVER TOOL [OPTIONS]\nmcpx tools SERVER\nmcpx servers list\nmcpx call SERVER TOOL --args JSON\nmcpx complete SERVER --line 'TOOL --par' [--cursor UTF8_BYTES]\nmcpx --url ENDPOINT TOOL [OPTIONS]\nmcpx completions bash|zsh|fish\nGlobal options precede the route; use TOOL --help for tool parameters.";
+    let help = "mcpx --config mcpx.toml SERVER TOOL [OPTIONS]\nmcpx tools SERVER\nmcpx servers list\nmcpx auth login|status|logout SERVER [--client-id ID] [--no-browser] [--store keyring|file]\nmcpx call SERVER TOOL --args JSON\nmcpx complete SERVER --line 'TOOL --par' [--cursor UTF8_BYTES]\nmcpx --url ENDPOINT TOOL [OPTIONS]\nmcpx completions bash|zsh|fish\nGlobal options precede the route; use TOOL --help for tool parameters.";
     let help = if is_wasi {
         format!(
             "{help}\nWASI HTTP: files and environment require host grants; child-process transport is unavailable."
@@ -77,6 +90,12 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
             "Bind and call remote MCP tools without generated code"
         })
         .arg(Arg::new("url").long("url").value_name("ENDPOINT"))
+        .arg(
+            Arg::new("profile")
+                .long("profile")
+                .value_name("ACCOUNT")
+                .help("OAuth account profile (default: default)"),
+        )
         .arg(
             Arg::new("config")
                 .long("config")
@@ -153,7 +172,72 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
         return crate::shell::request(&argv);
     }
     let url = matches.get_one::<String>("url").cloned();
-    let route = if route == "complete" {
+    let route = if route == "auth" {
+        let parsed = Command::new("auth")
+            .no_binary_name(true)
+            .arg(
+                Arg::new("action")
+                    .required(true)
+                    .value_parser(["login", "status", "logout"]),
+            )
+            .arg(Arg::new("server").required(url.is_none()))
+            .arg(Arg::new("client-id").long("client-id"))
+            .arg(
+                Arg::new("redirect-port")
+                    .long("redirect-port")
+                    .value_parser(clap::value_parser!(u16)),
+            )
+            .arg(
+                Arg::new("scope")
+                    .long("scope")
+                    .action(clap::ArgAction::Append),
+            )
+            .arg(
+                Arg::new("no-browser")
+                    .long("no-browser")
+                    .action(clap::ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("store")
+                    .long("store")
+                    .default_value("keyring")
+                    .value_parser(["keyring", "file"]),
+            )
+            .try_get_matches_from(&argv);
+        let parsed = match parsed {
+            Ok(value) => value,
+            Err(e) if e.kind() == clap::error::ErrorKind::DisplayHelp => {
+                print!("{e}");
+                return Ok(None);
+            }
+            Err(_) => {
+                return Err(Error::local(
+                    "CommandParseError",
+                    "expected auth login|status|logout SERVER; omit SERVER with --url",
+                ));
+            }
+        };
+        if url.is_some() && parsed.get_one::<String>("server").is_some() {
+            return Err(Error::local("CommandParseError", "omit SERVER with --url"));
+        }
+        Route::Auth {
+            alias: parsed.get_one::<String>("server").cloned(),
+            action: parsed.get_one::<String>("action").unwrap().clone(),
+            client_id: parsed.get_one::<String>("client-id").cloned(),
+            scopes: parsed
+                .get_many::<String>("scope")
+                .map(|v| {
+                    v.flat_map(|s| s.split_whitespace().map(str::to_owned))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            redirect_port: parsed.get_one::<u16>("redirect-port").copied(),
+            no_browser: parsed.get_flag("no-browser"),
+            file_store: parsed
+                .get_one::<String>("store")
+                .is_some_and(|s| s == "file"),
+        }
+    } else if route == "complete" {
         let mut command = Command::new("complete")
             .no_binary_name(true)
             .arg(
@@ -280,6 +364,7 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
         output: matches.get_one::<String>("output").unwrap().clone(),
         timeout: Duration::from_secs(*matches.get_one::<u64>("timeout").unwrap()),
         token_env: matches.get_one::<String>("token-env").cloned(),
+        profile: matches.get_one::<String>("profile").cloned(),
         schema_registry: matches.get_one::<String>("schema-registry").cloned(),
         route,
     }))

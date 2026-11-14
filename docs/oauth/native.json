@@ -1,0 +1,10 @@
+{
+  "client_id": "https://reonokiy.github.io/mcpx/oauth/native.json",
+  "client_name": "mcpx CLI",
+  "client_uri": "https://github.com/reonokiy/mcpx",
+  "redirect_uris": ["http://127.0.0.1:48721/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none",
+  "application_type": "native"
+}

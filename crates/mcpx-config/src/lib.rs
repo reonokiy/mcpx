@@ -169,7 +169,7 @@ pub fn validate_alias(alias: &str) -> Result<()> {
     if alias.is_empty()
         || matches!(
             alias,
-            "tools" | "call" | "servers" | "complete" | "completions" | "__complete"
+            "tools" | "call" | "servers" | "complete" | "completions" | "__complete" | "auth"
         )
         || !alias
             .chars()

@@ -1,3 +1,4 @@
+pub mod oauth;
 mod operation_events;
 use mcpx_command::ClientCommandExt;
 pub use mcpx_command::{
@@ -189,16 +190,23 @@ impl Client {
                 ));
             }
             if self.provider.is_none() {
-                let variable = reference
-                    .strip_prefix("env:")
-                    .filter(|variable| !variable.is_empty())
-                    .ok_or_else(|| {
-                        Error::local(
-                            "CredentialUnavailable",
-                            "named credential reference requires a credential provider",
-                        )
-                    })?;
-                self.provider = Some(Box::new(EnvCredentialProvider::new(variable)));
+                if reference == "oauth" || reference.starts_with("oauth:") {
+                    self.provider = Some(Box::new(oauth::OAuthCredentialProvider::for_profile(
+                        &endpoint,
+                        reference.strip_prefix("oauth:").unwrap_or("default"),
+                    )?));
+                } else {
+                    let variable = reference
+                        .strip_prefix("env:")
+                        .filter(|variable| !variable.is_empty())
+                        .ok_or_else(|| {
+                            Error::local(
+                                "CredentialUnavailable",
+                                "named credential reference requires a credential provider",
+                            )
+                        })?;
+                    self.provider = Some(Box::new(EnvCredentialProvider::new(variable)));
+                }
             }
         }
         if let Some(registry) = self.schema_registry.take() {

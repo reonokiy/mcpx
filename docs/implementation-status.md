@@ -800,3 +800,14 @@ workspace 与 WASIp2 CLI/config/driver 的全目标 Clippy（-D warnings）、fm
 默认 1.100 的原生 CLI/全部原生示例、Web/Component 和固定 adapter、WASI CLI/十二个示例已恢复构建；workspace 与 WASIp2 CLI/config/driver 全目标 Clippy（-D warnings）、facade 组合及 fmt 均通过，见 restore 日志。 恢复后另外实际通过 Web/typed Component 与原生库/队列示例 smoke，见 restored-smoke 日志。
 
 原生初始连接、已连接 mutable 与 Queue 的 opt-in 有界 session 续建均已接入。JS/Worker/WASI 的自动 session 生命周期、完整 Schema CPU/allocator 硬预算、更多 SDK/宿主/平台、性能报告、公开接口和发布验收等原完整范围继续推进，持续目标仍未完成。
+
+
+## Native OAuth P0 — alpha.2
+
+新增 mcpx-auth 共享授权协议与原生 OAuthHttpClient/loopback callback/TokenStore/OAuthCredentialProvider。CLI 支持 auth login/status/logout、预注册 public client、CIMD 与旧 DCR、MCP PRM 与 OAuth/OIDC 发现、PKCE S256、state/issuer/resource 绑定、OS keyring 默认存储、显式 private-file 存储、提前刷新及 refresh-token 轮换、服务端支持时撤销。refresh 单次失败不重放业务请求。原生库的凭据 resolve 不开启浏览器；授权事务由应用显式发起。
+
+多用户按 resource + profile 隔离持久化 grant、系统凭据条目和跨进程锁。CLI --profile 与配置 oauth:PROFILE 选择账号。OAuthCredentialProvider::from_grant 使用该身份私有的内存状态，clone 共享该身份的刷新锁，其他身份拥有独立状态；forget 只清除自己的克隆。不同用户各自持有 Remote/QueuedRemote，保留各自目录、类型绑定和已准备凭据快照；应用认证层负责授权 profile 的选择，不提供全局可变 user/token。
+
+本地 439 项 Rust 测试通过（增加三项协议/回调校验测试及一项真实 HTTP 多用户并发测试）；六项 CLI OAuth 场景覆盖 pre-registration/DCR/CIMD/well-known/OIDC/legacy、浏览器回调、持久化、两进程竞争下唯一刷新与轮换、稳定 context、另一个 profile 无权限访问或退出当前账号、撤销和无工具重放。真实多用户场景在独立 QueuedRemote owner 中并行刷新 Alice/Bob，通过 server barrier 证明不同身份没有全局串行锁；同一身份 clone 只刷新一次，两用户拿到不同 Schema 并以正确 token 执行，清除 Alice 不影响 Bob。CLI fixture 使用显式 file backend；不是公共 OAuth 提供商互操作或 OS keyring 人机交互的证明。Native 最低编译器检查与全 workspace Clippy 通过，WASI CLI 保留凭据注入并对交互式 OAuth 返回明确能力错误。
+
+本批聚焦原生登录和自动刷新；浏览器/Worker 和 WASI 的 OAuth UI/宿主封装继续由后续版本接入。原完整方案中的其余资源预算、平台/互操作与 API 稳定性仍未因 alpha 发布而宣告全部完成。

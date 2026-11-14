@@ -99,7 +99,8 @@ impl Error {
                 | "Unauthorized"
                 | "AuthenticationFailed"
                 | "AuthFailed"
-                | "CredentialUnavailable" => RetryAdvice::RefreshAuthentication,
+                | "CredentialUnavailable"
+                | "LoginRequired" => RetryAdvice::RefreshAuthentication,
                 "ValidationFailed"
                 | "InvalidJson"
                 | "InvalidInput"

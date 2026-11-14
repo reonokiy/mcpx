@@ -148,7 +148,21 @@ pub(crate) fn status(result: mcpx::Result<u8>) -> u8 {
                 | "InvalidAlias"
                 | "ProcessStartFailed"
                 | "CapabilityUnavailable" => 3,
-                "AuthFailed" | "CredentialUnavailable" => 4,
+                "AuthFailed"
+                | "CredentialUnavailable"
+                | "LoginRequired"
+                | "TokenStoreUnavailable"
+                | "OAuthMetadataInvalid"
+                | "OAuthDiscoveryFailed"
+                | "OAuthPkceRequired"
+                | "OAuthRegistrationRequired"
+                | "OAuthRegistrationFailed"
+                | "OAuthClientInvalid"
+                | "OAuthCallbackInvalid"
+                | "OAuthCallbackUnavailable"
+                | "OAuthConsentDenied"
+                | "OAuthTokenFailed"
+                | "OAuthTransportError" => 4,
                 "Timeout" => 6,
                 "Cancelled" => 130,
                 _ => 5,

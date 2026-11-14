@@ -5,7 +5,7 @@
     "@bytecodealliance/jco-transpile": "0.23.0",
     "playwright": "1.65.0"
   },
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "private": true,
   "description": "mcpx WebAssembly build and integration tests",
   "license": "MIT OR Apache-2.0",
@@ -36,6 +36,7 @@
     "test:response-resume": "node scripts/smoke-response-resume.mjs && node scripts/smoke-response-resume-sdk.mjs",
     "test:wasi-response-resume": "node scripts/smoke-response-resume.mjs --wasi",
     "test:wasi-response-recovery": "node scripts/smoke-wasi-response-recovery.mjs && node scripts/smoke-response-resume-sdk.mjs --wasi",
-    "test:http-session": "node --expose-gc scripts/smoke-http-session.mjs && node scripts/smoke-http-session-sdk.mjs"
+    "test:http-session": "node --expose-gc scripts/smoke-http-session.mjs && node scripts/smoke-http-session-sdk.mjs",
+    "test:oauth": "node scripts/smoke-oauth.mjs"
   }
 }

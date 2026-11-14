@@ -15,6 +15,7 @@ const OPTIONS: &[&str] = &[
     "--output",
     "--timeout",
     "--token-env",
+    "--profile",
     "--schema-registry",
     "--help",
     "--version",
@@ -299,6 +300,7 @@ fn plan(
         output: "shell".into(),
         timeout: Duration::from_secs(2),
         token_env: None,
+        profile: None,
         schema_registry: None,
         route: Route::Servers,
     };
@@ -339,6 +341,7 @@ fn plan(
                 invocation.timeout = Duration::from_secs(seconds.min(2));
             }
             "--token-env" => invocation.token_env = Some(value.into()),
+            "--profile" => invocation.profile = Some(value.into()),
             "--schema-registry" => invocation.schema_registry = Some(value.into()),
             _ => return Ok(None),
         }

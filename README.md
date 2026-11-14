@@ -2,14 +2,14 @@
 
 Runtime MCP tool bindings in Rust, with native CLI, browser WebAssembly, a WASI Component API and a standalone WASI CLI. Remote tools are discovered through MCP and validated against their input schemas. No tool-specific source generation is required.
 
-**Test release: [v0.1.0-alpha.1](https://github.com/reonokiy/mcpx/releases/tag/v0.1.0-alpha.1).** Download the native CLI, standalone WASI CLI, Web/Component bundle, or Rust workspace source from the release assets. This alpha is intended for early testing; APIs may change. The CLI supports named HTTP/stdio servers and direct HTTP endpoints.
+**Test release: [v0.1.0-alpha.2](https://github.com/reonokiy/mcpx/releases/tag/v0.1.0-alpha.2).** Download the native CLI, standalone WASI CLI, Web/Component bundle, or Rust workspace source from the release assets. This alpha is intended for early testing; APIs may change. The CLI supports named HTTP/stdio servers and direct HTTP endpoints.
 
 For Linux x86_64 with glibc 2.39 or newer:
 
 ```bash
-gh release download v0.1.0-alpha.1 --repo reonokiy/mcpx --pattern '*x86_64-unknown-linux-gnu.tar.gz'
-tar -xzf mcpx-v0.1.0-alpha.1-x86_64-unknown-linux-gnu.tar.gz
-./mcpx-v0.1.0-alpha.1-x86_64-unknown-linux-gnu/mcpx --version
+gh release download v0.1.0-alpha.2 --repo reonokiy/mcpx --pattern '*x86_64-unknown-linux-gnu.tar.gz'
+tar -xzf mcpx-v0.1.0-alpha.2-x86_64-unknown-linux-gnu.tar.gz
+./mcpx-v0.1.0-alpha.2-x86_64-unknown-linux-gnu/mcpx --version
 ```
 
 Release assets are built and uploaded by [GitHub Actions](https://github.com/reonokiy/mcpx/actions/workflows/release.yml). macOS and Windows native builds are included alongside Linux; choose the target triple matching your system. Use the source archive to build on other native platforms. The full implementation plan and remaining work are documented in [the technical design](docs/technical-design.md) and [implementation status](docs/implementation-status.md).
@@ -57,7 +57,73 @@ cargo run -p mcpx-cli -- --config mcpx.example.toml call demo echo --args-file r
 
 `--args-file -` reads JSON from stdin. Global options precede the server/tool route, so remote tool flags do not collide with CLI output or protocol options. Ctrl-C returns exit code 130 and releases an active child process; a timed-out stdio connection is closed rather than reused with a potentially partial response.
 
-Management names `tools`, `call`, `servers`, `complete`, `completions` and `__complete` are reserved server aliases. Use `call SERVER TOOL` to address a remote tool with a management name, or `--url ENDPOINT call TOOL` for a direct endpoint.
+Management names `auth`, `tools`, `call`, `servers`, `complete`, `completions` and `__complete` are reserved server aliases. Use `call SERVER TOOL` to address a remote tool with a management name, or `--url ENDPOINT call TOOL` for a direct endpoint.
+
+### OAuth login (native CLI)
+
+For a protected HTTP server, configure OAuth instead of an environment token:
+
+```toml
+[servers.private]
+transport = "http"
+url = "https://your-server.example/mcp"
+credential = "oauth"
+```
+
+```bash
+mcpx auth login private
+mcpx private echo --message hello
+mcpx auth status private
+mcpx auth logout private
+```
+
+Login opens the system browser and receives the authorization code on a loopback
+callback. Credentials are saved to the OS credential store by default. The CLI
+silently refreshes expiring tokens and saves refresh-token rotations; independent
+CLI processes serialize refresh for the same resource. Refresh preserves the
+binding context unless granted scopes change. Logout removes local credentials
+and requests revocation when the authorization server advertises it. An already
+failed tool request is never replayed after authentication.
+
+Discovery follows MCP protected-resource metadata, OAuth/OIDC server metadata and
+PKCE S256. Pre-registered public clients (`--client-id ID`), CIMD and legacy DCR are
+supported. The official CIMD document is hosted at
+<https://reonokiy.github.io/mcpx/oauth/native.json> and uses
+`http://127.0.0.1:48721/callback`. Use `--redirect-port PORT` for a pre-registered or
+DCR client; port `0` requests an ephemeral port. The official CIMD needs its fixed
+port. `--scope SCOPE` adds required permissions; `--no-browser` prints the URL for
+manual opening. The global `--timeout` bounds the entire login.
+
+On a host without a usable OS credential store, opt into private-file storage
+explicitly: `mcpx auth login private --store file`. Files are atomically replaced
+and created with mode 0600 on Unix, beneath the platform's per-user state directory;
+`MCPX_AUTH_DIR` overrides that directory. File storage is unencrypted. No plaintext
+fallback happens automatically. `--output json auth status private` reports expiry
+and scopes without tokens. Direct URLs also work with
+`mcpx --url https://your-server.example/mcp auth login`; saved grants are then
+reused for that endpoint. Explicit `--token-env` and configured `env:` credentials
+retain precedence.
+
+Use `--profile ACCOUNT` before the route to keep separate accounts for the same
+server, for example `mcpx --profile alice auth login private` and
+`mcpx --profile bob private echo --message hello`. Persistent records and refresh
+locks are keyed by profile plus canonical MCP resource. A configuration may use
+`credential = "oauth:alice"`; an explicit `--profile` overrides it.
+
+Rust embedders can use `mcpx::native::oauth::OAuthCredentialProvider`, or select
+`credential = "oauth"` in a native server configuration. `resolve` never opens a
+browser; missing/invalid refresh grants return `LoginRequired`. The shared
+`mcpx-auth` crate contains the authorization protocol and a host HTTP trait.
+For multi-user applications, create one Provider/Remote per authenticated user.
+`OAuthCredentialProvider::from_grant(grant)` keeps that user's tokens in memory;
+cloning it shares only that user's refresh state. `for_profile(endpoint, account)`
+selects isolated persistent state. Different users have independent refresh locks,
+authorization contexts, catalogs, typed bindings and request credentials; the HTTP
+connection pool may be reused without setting a global Authorization header.
+`forget().await` clears only that identity's shared state. The application must
+select profiles from its trusted authentication context, not an untrusted request
+parameter. A binding from one Remote cannot be used as another user's binding.
+Interactive OAuth in browser/Worker and WASI hosts is not included in this alpha.
 
 ### Dynamic command completion
 

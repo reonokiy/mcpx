@@ -33,6 +33,10 @@ jobs:
           node-version: 24
       - run: cargo build --release -p mcpx-cli --locked
       - run: node scripts/smoke-release.mjs --native
+      - name: Check native OAuth login and refresh
+        env:
+          MCPX_CLI: target/release/mcpx${{ runner.os == 'Windows' && '.exe' || '' }}
+        run: node scripts/smoke-oauth.mjs
       - run: python scripts/package-release.py native
       - uses: actions/upload-artifact@v4
         with:

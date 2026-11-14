@@ -17,6 +17,12 @@ async fn run() -> mcpx::Result<u8> {
     let Some(invocation) = crate::routing::parse(true)? else {
         return Ok(0);
     };
+    if matches!(invocation.route, crate::routing::Route::Auth { .. }) {
+        return Err(Error::local(
+            "CapabilityUnavailable",
+            "interactive OAuth login is currently available in the native CLI; WASI hosts can inject credentials",
+        ));
+    }
     let output = invocation.output.as_str();
     let configuration = if invocation.url.is_none() {
         // Stdio routes are listed but rejected before dispatch on this host.
