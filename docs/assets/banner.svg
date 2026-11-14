@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="540" viewBox="0 0 1280 540" role="img" aria-labelledby="title desc">
+  <title id="title">mcpx — Turn MCP tools into CLI commands and runtime API calls</title>
+  <desc id="desc">A universal CLI and embeddable library for native, browser WebAssembly, and WASI environments. HTTP and stdio MCP servers connect to the mcpx runtime, which discovers tools, validates JSON Schema inputs, and invokes tools without tool-specific code generation.</desc>
+
+  <rect width="1280" height="540" fill="#FAFAF8"/>
+
+  <!-- Brand and promise -->
+  <g font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif">
+    <text x="80" y="100" font-size="68" font-weight="650" letter-spacing="-4.5" fill="#181816">mcp<tspan fill="#B54708">x</tspan></text>
+    <text x="320" y="76" font-size="26" font-weight="500" fill="#292925">Turn MCP tools into CLI commands and runtime API calls.</text>
+    <text x="320" y="110" font-size="18" fill="#6F6F67">One universal CLI and library for native, browser, and WASI environments.</text>
+  </g>
+
+  <line x1="80" y1="144" x2="1200" y2="144" stroke="#DDDDD6" stroke-width="1"/>
+
+  <!-- Connectors sit behind the runtime and terminate before labels. -->
+  <g fill="none" stroke="#B7B7AF" stroke-width="1.5">
+    <path d="M248 293 C 340 293, 356 340, 446 340"/>
+    <path d="M248 411 C 340 411, 356 340, 446 340"/>
+    <path d="M814 340 C 866 340, 878 279, 934 279"/>
+    <path d="M814 340 C 866 340, 878 357, 934 357"/>
+    <path d="M814 340 C 866 340, 878 435, 934 435"/>
+  </g>
+
+  <!-- Inputs -->
+  <g font-family="'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace" font-size="20" fill="#353530" text-anchor="end">
+    <text x="216" y="300">HTTP</text>
+    <text x="216" y="418">stdio</text>
+  </g>
+  <g font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" fill="#6F6F67" text-anchor="end">
+    <text x="216" y="326">Remote MCP server</text>
+    <text x="216" y="444">Local MCP process</text>
+  </g>
+
+  <!-- Runtime -->
+  <rect x="446" y="224" width="368" height="232" rx="6" fill="#FFFFFF" fill-opacity="0.45" stroke="#CBCBC3" stroke-width="1"/>
+  <text x="474" y="266" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="23" font-weight="600" fill="#B54708">mcpx<tspan fill="#292925"> runtime</tspan></text>
+  <line x1="446" y1="286" x2="814" y2="286" stroke="#DDDDD6" stroke-width="1"/>
+  <line x1="474" y1="348" x2="786" y2="348" stroke="#E5E5DE" stroke-width="1"/>
+  <line x1="474" y1="400" x2="786" y2="400" stroke="#E5E5DE" stroke-width="1"/>
+
+  <g font-family="'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace" font-size="18" fill="#353530">
+    <text x="474" y="328">tools/list</text>
+    <text x="474" y="380">JSON Schema</text>
+    <text x="474" y="432">tools/call</text>
+  </g>
+  <g font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" fill="#6F6F67" text-anchor="end">
+    <text x="786" y="327">Discover</text>
+    <text x="786" y="379">Validate</text>
+    <text x="786" y="431">Invoke</text>
+  </g>
+
+  <circle cx="446" cy="340" r="3" fill="#B54708"/>
+  <circle cx="814" cy="340" r="3" fill="#B54708"/>
+
+  <!-- Targets -->
+  <g font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="500" fill="#292925">
+    <text x="954" y="286">Native</text>
+    <text x="954" y="364">Browser</text>
+    <text x="954" y="442">WASI</text>
+  </g>
+  <g font-family="'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace" font-size="15" fill="#6F6F67">
+    <text x="954" y="312">CLI + Tokio</text>
+    <text x="954" y="390">WebAssembly</text>
+    <text x="954" y="468">Component + CLI</text>
+  </g>
+</svg>
