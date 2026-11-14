@@ -79,6 +79,11 @@ jobs:
       - run: bash scripts/build-wasm.sh
       - run: cargo build -p mcpx-native --example sdk_http_server --locked
       - run: npm run test:wasm
+      - name: Build and check size-optimized release runtimes
+        run: |
+          bash scripts/build-wasm.sh --release
+          node scripts/smoke-web-client.mjs
+          node scripts/smoke-component.mjs
   wasi-cli:
     runs-on: ubuntu-latest
     steps:

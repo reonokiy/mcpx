@@ -93,6 +93,17 @@ Explore the [browser CLI example](examples/web-worker/) and [WASI Component exam
 
 ## Documentation & support
 
+To build the WebAssembly bindings from source, install the Rust targets
+`wasm32-unknown-unknown` and `wasm32-wasip2`, run `npm ci --ignore-scripts`, and
+install the matching binding tool with
+`cargo install wasm-bindgen-cli --version 0.2.130 --locked --root target/tools`.
+Run `npm run build:wasm -- --release` for size-optimized artifacts in `dist/web`
+and `dist/component`. Release builds use LTO and a single codegen unit; Web
+bindings additionally use `opt-level="z"` and pinned Binaryen `wasm-opt -Oz`,
+with debug names removed. Component builds use `opt-level="s"`. These settings
+apply only to the bindings build; native and standalone WASI CLI builds keep
+their existing profiles. Omit `--release` for the regular debug build.
+
 - [Technical design](docs/technical-design.md) and [implementation status](docs/implementation-status.md)
 - Found a bug? [Open an issue](https://github.com/reonokiy/mcpx/issues).
 - Have a question or feedback? Start a [discussion](https://github.com/reonokiy/mcpx/discussions).
