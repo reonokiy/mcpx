@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mcpx browser CLI</title>
+<style>
+  :root { font: 16px system-ui, sans-serif; color-scheme: light dark; }
+  body { max-width: 56rem; margin: 3rem auto; padding: 0 1rem; }
+  label { display: block; margin-top: 1.25rem; }
+  input { box-sizing: border-box; width: 100%; padding: .7rem; margin: .4rem 0; font: inherit; }
+  button { padding: .6rem 1rem; margin-right: .4rem; }
+  pre { padding: 1rem; border: 1px solid #8887; border-radius: .4rem; min-height: 12rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+  #status { margin-left: .5rem; }
+</style>
+<h1>mcpx browser CLI</h1>
+<p>Connect to an MCP HTTP endpoint, then enter a tool name and its arguments. Use <code>tool_name --help</code> to see its options.</p>
+<label for="endpoint">MCP endpoint</label>
+<input id="endpoint" type="url" placeholder="https://your-server.example/mcp" autocomplete="off">
+<button id="connect">Connect</button><button id="close" disabled>Close</button><span id="status" role="status">Disconnected</span>
+<form id="command-form">
+  <label for="command">Command</label>
+  <input id="command" placeholder='echo --message "hello world"' autocomplete="off" spellcheck="false" disabled>
+  <button id="run" disabled>Run</button><button id="complete" type="button" disabled>Complete</button><button id="cancel" type="button" disabled>Cancel</button>
+  <div id="completions" aria-live="polite" aria-label="Command suggestions"></div>
+</form>
+<p>Press Tab or Complete for tool names and arguments. The endpoint must allow this page's origin through CORS. Commands support quotes and escapes; shell expansion is disabled.</p>
+<pre id="output" aria-label="Command output" aria-live="polite"></pre>
+<script type="module" src="./main.js"></script>
+</html>

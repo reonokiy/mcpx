@@ -1,0 +1,28 @@
+[package]
+name = "mcpx-wasi-https-host"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.100"
+license = "MIT OR Apache-2.0"
+publish = false
+
+# Test-only embedder: Wasmtime's compiler floor does not change mcpx's MSRV.
+[workspace]
+
+[dependencies]
+futures-util = "0.3"
+http = "1"
+http-body = "1"
+http-body-util = "0.1"
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls", "stream"] }
+rustls = { version = "=0.23.46", default-features = false }
+tokio = { version = "1", features = ["macros", "rt", "time"] }
+wasmtime = { version = "=50.0.1", default-features = false, features = ["std", "runtime", "async", "component-model", "cranelift", "parallel-compilation"] }
+wasmtime-wasi = { version = "=50.0.1", default-features = false, features = ["p2"] }
+wasmtime-wasi-http = { version = "=50.0.1", default-features = false, features = ["p2"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[profile.dev]
+debug = 0

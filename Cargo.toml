@@ -1,0 +1,25 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+default-members = ["crates/mcpx", "crates/mcpx-cli"]
+
+[workspace.package]
+version = "0.1.0-alpha.1"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["arbitrary_precision"] }
+thiserror = "2"
+jsonschema = { version = "=0.61.2", default-features = false }
+clap = { version = "4", default-features = false, features = ["std", "help", "usage", "error-context", "string"] }
+tokio = { version = "1", features = ["rt", "macros", "time", "net", "io-util", "process", "signal", "sync"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream"] }
+futures-util = "0.3"
+wasm-bindgen = "0.2"
+wit-bindgen = "0.51"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

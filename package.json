@@ -1,0 +1,41 @@
+{
+  "name": "mcpx",
+  "type": "module",
+  "devDependencies": {
+    "@bytecodealliance/jco-transpile": "0.23.0",
+    "playwright": "1.65.0"
+  },
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "description": "mcpx WebAssembly build and integration tests",
+  "license": "MIT OR Apache-2.0",
+  "scripts": {
+    "build:wasm": "bash scripts/build-wasm.sh",
+    "test:wasm": "node scripts/test-operation-events.mjs && node scripts/test-worker-events.mjs && node scripts/test-worker-fetch.mjs && node scripts/test-catalog-watch.mjs && node scripts/test-http-session.mjs && node scripts/smoke-wasm.mjs && node scripts/smoke-component.mjs && node scripts/smoke-notifications.mjs && node scripts/smoke-legacy-resume.mjs && node scripts/smoke-response-resume.mjs && node scripts/smoke-response-resume-sdk.mjs && node --expose-gc scripts/smoke-remote-notifications.mjs && node --expose-gc scripts/smoke-remote-recovery.mjs && node --expose-gc scripts/smoke-response-recovery.mjs && node --expose-gc scripts/smoke-http-reconnect.mjs && npm run test:http-session && node scripts/smoke-web-client.mjs && node scripts/smoke-worker.mjs && npm run test:lifecycle",
+    "test:lifecycle": "node --expose-gc scripts/smoke-lifecycle.mjs",
+    "test:wasi-cli": "node scripts/smoke-wasi-cli.mjs",
+    "test:wasi-notifications": "node scripts/smoke-wasi-notifications.mjs",
+    "test:legacy-resume": "node scripts/smoke-legacy-resume.mjs",
+    "test:wasi-legacy-resume": "node scripts/smoke-legacy-resume.mjs --wasi",
+    "test:wasi-queue": "node scripts/smoke-wasi-queue.mjs",
+    "test:wasi-credentials": "node scripts/smoke-wasi-credentials.mjs",
+    "test:wasi-controls": "node scripts/smoke-wasi-controls.mjs",
+    "test:wasi-reactor": "node scripts/smoke-wasi-reactor.mjs",
+    "test:wasi-reconnect": "node scripts/smoke-wasi-reconnect.mjs",
+    "test:wasi-sdk": "node scripts/smoke-wasi-sdk.mjs",
+    "test:wasi-https": "node scripts/smoke-wasi-sdk.mjs --https",
+    "test:config-cli": "node scripts/smoke-config-cli.mjs",
+    "test:shells": "node scripts/smoke-shells.mjs native && node scripts/smoke-shells.mjs wasi",
+    "test:web-client": "node scripts/smoke-web-client.mjs",
+    "test:worker": "node scripts/smoke-worker.mjs",
+    "test:component": "node scripts/smoke-component.mjs",
+    "test:http-reconnect": "node --expose-gc scripts/smoke-http-reconnect.mjs",
+    "test:response-recovery": "node --expose-gc scripts/smoke-response-recovery.mjs",
+    "test:remote-recovery": "node --expose-gc scripts/smoke-remote-recovery.mjs",
+    "test:wasi-recovery": "node scripts/smoke-wasi-recovery.mjs",
+    "test:response-resume": "node scripts/smoke-response-resume.mjs && node scripts/smoke-response-resume-sdk.mjs",
+    "test:wasi-response-resume": "node scripts/smoke-response-resume.mjs --wasi",
+    "test:wasi-response-recovery": "node scripts/smoke-wasi-response-recovery.mjs && node scripts/smoke-response-resume-sdk.mjs --wasi",
+    "test:http-session": "node --expose-gc scripts/smoke-http-session.mjs && node scripts/smoke-http-session-sdk.mjs"
+  }
+}

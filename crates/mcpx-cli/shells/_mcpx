@@ -1,0 +1,17 @@
+#compdef mcpx
+_mcpx() {
+    emulate -L zsh
+    local -a candidates request
+    local word
+    for word in "${(@Q)words[1,CURRENT-1]}"; do
+        request+=(--word "$word")
+    done
+    candidates=("${(@f)$(command mcpx __complete zsh "${request[@]}" --current "${(Q)PREFIX}" 2>/dev/null)}")
+    [[ -n "${candidates[1]-}" ]] || return 1
+    if [[ ${candidates[-1]} == */ ]]; then
+        compadd -U -S '' -a candidates
+    else
+        compadd -U -a candidates
+    fi
+}
+(( $+functions[compdef] )) && compdef _mcpx mcpx

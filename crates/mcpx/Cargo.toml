@@ -1,0 +1,24 @@
+[package]
+name = "mcpx"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+command = ["dep:mcpx-command"]
+native = ["dep:mcpx-native"]
+wasi = ["dep:mcpx-wasi"]
+config = ["dep:mcpx-config"]
+
+[dependencies]
+mcpx-core = { path = "../mcpx-core" }
+mcpx-protocol = { path = "../mcpx-protocol" }
+mcpx-command = { path = "../mcpx-command", optional = true }
+mcpx-native = { path = "../mcpx-native", optional = true }
+mcpx-wasi = { path = "../mcpx-wasi", optional = true }
+mcpx-config = { path = "../mcpx-config", optional = true }

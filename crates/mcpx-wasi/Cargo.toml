@@ -1,0 +1,23 @@
+[package]
+name = "mcpx-wasi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+mcpx-core = { path = "../mcpx-core" }
+serde_json = { workspace = true }
+
+[target.'cfg(all(target_os = "wasi", target_env = "p2"))'.dependencies]
+mcpx-command = { path = "../mcpx-command" }
+serde = { workspace = true }
+wasip2 = "=1.0.4"
+url = "2"
+
+[dev-dependencies]
+mcpx-command = { path = "../mcpx-command" }
+

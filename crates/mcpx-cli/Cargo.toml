@@ -1,0 +1,27 @@
+[package]
+name = "mcpx-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "mcpx"
+path = "src/main.rs"
+
+[dependencies]
+mcpx = { path = "../mcpx", features = ["command", "config"] }
+clap = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+
+[target.'cfg(not(all(target_os = "wasi", target_env = "p2")))'.dependencies]
+mcpx = { path = "../mcpx", features = ["native"] }
+tokio = { workspace = true }
+
+[target.'cfg(all(target_os = "wasi", target_env = "p2"))'.dependencies]
+mcpx = { path = "../mcpx", features = ["wasi"] }
+wasip2 = "=1.0.4"

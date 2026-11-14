@@ -1,0 +1,24 @@
+import assert from "node:assert/strict";
+import { OperationObserver } from "../web/operation-events.js";
+const records=[];
+const observer=new OperationObserver(event=>records.push(event),()=>assert.fail("Observer threw"));
+const long="雪".repeat(100000);
+const error=Object.assign(new Error(long),{code:"Timeout",operation_id:35,queue_operation_id:1,execution_certainty:"unknown",retry_advice:"inspect_execution",raw:"private-raw",
+  issues:[{instance_path:"/"+long,schema_path:"/properties/private"},{instance_path:"/message",schema_path:"/properties/message/type"}]});
+observer.reserve(1);observer.queued(1);observer.start(1);observer.finish(1,{coreId:35,error});
+const event=records.at(-1);
+assert.deepEqual(records.map(event=>event.kind),["queued","started","failed"]);
+assert.equal(event.core_operation_id,35);assert.equal(event.payload.execution_certainty,"unknown");assert.equal(event.payload.retry_advice,"inspect_execution");
+assert.ok(new TextEncoder().encode(event.payload.message).length<=512);
+assert.deepEqual(event.payload.issues,[{instance_path:"/message",schema_path:"/properties/message/type"}],"A shortened pointer must not masquerade as the original field");
+assert.equal(event.payload.truncated,true);assert.equal(event.payload.raw,undefined);assert.ok(JSON.stringify(event).length<4096);
+assert.equal(error.message,long);assert.equal(error.issues.length,2);assert.equal(observer.active.size,0);
+observer.reserve(4);observer.queued(4);observer.start(4);
+observer.finish(4,{summary:{output_validation:"indeterminate",is_error:false}});
+assert.equal(records.at(-1).kind,"completed");
+assert.equal(records.at(-1).payload.output_validation,"indeterminate");
+observer.sequence=Number.MAX_SAFE_INTEGER-2;
+observer.reserve(2);observer.queued(2);assert.throws(()=>observer.start(2),error=>error.code==="LimitExceeded");
+observer.finish(2,{error:Object.assign(new Error("exhausted"),{code:"LimitExceeded",execution_certainty:"not_sent"})});
+assert.equal(records.at(-1).sequence,Number.MAX_SAFE_INTEGER);assert.throws(()=>observer.reserve(3),error=>error.code==="LimitExceeded");
+console.log("PASS queue lifecycle diagnostics: exact pointers, bounded borrowed errors, no raw output, protected final sequence");

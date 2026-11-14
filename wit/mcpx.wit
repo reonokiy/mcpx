@@ -1,0 +1,239 @@
+package mcpx:runtime@0.1.0;
+
+interface engine {
+    record validation-issue {
+        instance-path: string,
+        schema-path: string,
+    }
+    enum execution-certainty { not-sent, unknown, result-received, needs-input }
+    enum retry-advice { none, correct-input, refresh-binding, refresh-authentication, explicit-policy, inspect-execution, inspect-result, resume-input }
+    record runtime-error {
+        operation-id: option<u64>,
+        queue-operation-id: option<u64>,
+        execution-certainty: execution-certainty,
+        retry-advice: retry-advice,
+        code: string,
+        message: string,
+        issues: list<validation-issue>,
+    }
+    record header {
+        name: string,
+        value: string,
+    }
+    enum http-method { get, post, delete }
+    record http-request {
+        action-id: u64,
+        rpc-id: option<u64>,
+        rpc-method: string,
+        operation-id: u64,
+        cancellation: option<list<u8>>,
+        method: http-method,
+        url: string,
+        headers: list<header>,
+        body: list<u8>,
+    }
+    record stream-request {
+        action-id: u64,
+        rpc-id: option<u64>,
+        rpc-method: string,
+        operation-id: u64,
+        cancellation: option<list<u8>>,
+        body: list<u8>,
+    }
+    variant host-action {
+        http(http-request),
+        %stream(stream-request),
+        cancel(u64),
+    }
+    variant event-kind {
+        catalog-updated, catalog-stale, progress, log, notification,
+        completed, tool-failed, failed, cancelled, needs-input,
+        extension(string),
+    }
+    record event-batch {
+        events: list<runtime-event>,
+        dropped: u64,
+    }
+    record event-stats {
+        records: u32,
+        bytes: u64,
+        reserved-terminals: u32,
+        dropped: u64,
+        sequence: u64,
+    }
+    record runtime-event {
+        operation-id: u64,
+        queue-operation-id: option<u64>,
+        sequence: u64,
+        kind: event-kind,
+        failure: option<runtime-error>,
+        payload-json: string,
+    }
+    enum output-validation { not-declared, valid, invalid, not-applicable, indeterminate }
+    record tool-response {
+        operation-id: option<u64>,
+        queue-operation-id: option<u64>,
+        raw-json: string,
+        is-error: bool,
+        output-validation: output-validation,
+    }
+    record continuation {
+        operation-id: u64,
+        queue-operation-id: option<u64>,
+        id: u64,
+        expires-at-ms: u64,
+        raw-json: string,
+    }
+    variant call-outcome {
+        completed(tool-response),
+        needs-input(continuation),
+    }
+    record tool-descriptor {
+        name: string,
+        description: option<string>,
+        input-schema-json: string,
+        output-schema-json: option<string>,
+        extensions-json: string,
+    }
+    record catalog-status {
+        authorization-changed: bool,
+        needs-refresh: bool,
+        requires-exclusive: bool,
+    }
+    record http-session-status {
+        expired-at-ms: option<u64>,
+        last-tool-result: option<u64>,
+    }
+    variant command-admission {
+        help(string),
+        operation(u64),
+    }
+    record parameter-spec {
+        name: string,
+        flag: string,
+        description: string,
+        value-kind: string,
+        required: bool,
+        values: list<string>,
+    }
+    record schema-resource { uri: string, schema-json: string }
+    record schema-registry-stats {
+        resources: u32, bytes: u64, schema-nodes: u32,
+        patterns: u32, pattern-bytes: u32,
+    }
+    record validator-cache-stats {
+        capacity: u32, entries: u32,
+        hits: u64, misses: u64, compilations: u64, evictions: u64,
+        counters-saturated: bool,
+    }
+    record command-spec {
+        tool: string,
+        description: string,
+        parameters: list<parameter-spec>,
+        json-only: list<string>,
+    }
+    enum candidate-kind { tool, %option, value }
+    record completion-candidate {
+        value: string,
+        replacement: string,
+        description: string,
+        kind: candidate-kind,
+    }
+    record command-completion {
+        token: string,
+        start: u32,
+        end: u32,
+        candidates: list<completion-candidate>,
+        truncated: bool,
+    }
+    record catalog-change { published: bool, invalidated: bool }
+    record notification-request {
+        resource-id: u64, rpc-id: option<u64>, method: http-method,
+        url: string, headers: list<header>, body: option<list<u8>>,
+    }
+    enum notification-phase { opening, listening, closed, failed, cancelled }
+    record notification-status {
+        resource-id: u64, rpc-id: option<u64>, phase: notification-phase,
+        error-code: option<string>,
+    }
+    record notification-resume { resource-id: u64, retry-after-ms: u64 }
+    record response-resume { action-id: u64, rpc-id: u64, operation-id: u64, retry-after-ms: u64 }
+    record response-resume-request {
+        action-id: u64, rpc-id: u64, operation-id: u64, method: http-method,
+        url: string, headers: list<header>, body: option<list<u8>>,
+    }
+    variant catalog-poll { pending, changed(catalog-change), closed }
+    resource remote {
+        enable-response-resumption: func(action-id: u64) -> result<_, runtime-error>;
+        interrupt-response-for: func(action-id: u64) -> result<_, runtime-error>;
+        response-resume: func(action-id: u64) -> result<response-resume, runtime-error>;
+        resume-response: func(action-id: u64) -> result<response-resume-request, runtime-error>;
+        response-replies: func(action-id: u64) -> result<list<string>, runtime-error>;
+        release-response-resumption: func(action-id: u64) -> result<_, runtime-error>;
+        exhaust-response-resumption: func(action-id: u64) -> result<_, runtime-error>;
+        start-notifications: func() -> result<notification-request, runtime-error>;
+        notification-resume: func(resource-id: u64) -> result<notification-resume, runtime-error>;
+        resume-notifications: func(resource-id: u64) -> result<notification-request, runtime-error>;
+        notification-status: func() -> option<notification-status>;
+        begin-notifications: func(resource-id: u64, status: u16, content-type: string) -> result<_, runtime-error>;
+        push-notifications: func(resource-id: u64, bytes: list<u8>) -> result<bool, runtime-error>;
+        finish-notifications: func(resource-id: u64) -> result<_, runtime-error>;
+        stop-notifications: func(resource-id: u64) -> result<_, runtime-error>;
+        abort-notifications: func(resource-id: u64, timeout: bool) -> result<_, runtime-error>;
+        notification-replies: func(resource-id: u64) -> result<list<string>, runtime-error>;
+        discover: func() -> result<_, runtime-error>;
+        endpoint: func() -> string;
+        catalog-status: func(scope: string) -> result<catalog-status, runtime-error>;
+        catalog-change: func() -> catalog-poll;
+        accept-authorization: func(scope: string) -> result<bool, runtime-error>;
+        refresh-catalog: func() -> result<_, runtime-error>;
+        reset-transport: func() -> result<_, runtime-error>;
+        http-session-status: func() -> http-session-status;
+        set-catalog-ttl: func(ttl-ms: u64);
+        advance-time: func(now-ms: u64) -> result<_, runtime-error>;
+        set-elicitation: func(form: bool, url: bool) -> result<_, runtime-error>;
+        resume: func(continuation-id: u64, responses: string) -> result<_, runtime-error>;
+        release-continuation: func(continuation-id: u64);
+        bind: func(name: string) -> result<u64, runtime-error>;
+        release-binding: func(binding-id: u64);
+        tools: func() -> list<tool-descriptor>;
+        set-schema-registry: func(resources: list<schema-resource>) -> result<_, runtime-error>;
+        schema-registry-stats: func() -> schema-registry-stats;
+        validator-cache-stats: func() -> validator-cache-stats;
+        set-validator-cache-capacity: func(capacity: u32) -> result<_, runtime-error>;
+        clear-validator-cache: func();
+        command-spec: func(tool: string) -> result<command-spec, runtime-error>;
+        complete-line: func(line: string, cursor: u32) -> result<command-completion, runtime-error>;
+        validate: func(binding-id: u64, args: string) -> result<string, runtime-error>;
+        call: func(binding-id: u64, args: string) -> result<_, runtime-error>;
+        call-concurrent: func(binding-id: u64, args: string) -> result<u64, runtime-error>;
+        completion: func(operation-id: u64) -> result<option<call-outcome>, runtime-error>;
+        cancel-operation: func(operation-id: u64) -> result<_, runtime-error>;
+        resume-concurrent: func(continuation-id: u64, responses: string) -> result<u64, runtime-error>;
+        command: func(tool: string, argv: list<string>) -> result<option<string>, runtime-error>;
+        command-line: func(line: string) -> result<option<string>, runtime-error>;
+        command-concurrent: func(tool: string, argv: list<string>) -> result<command-admission, runtime-error>;
+        command-line-concurrent: func(line: string) -> result<command-admission, runtime-error>;
+        actions: func() -> list<host-action>;
+        events: func() -> event-batch;
+        set-event-limits: func(capacity: u32, max-bytes: u32) -> result<_, runtime-error>;
+        event-stats: func() -> event-stats;
+        outcome: func() -> option<call-outcome>;
+        busy: func() -> bool;
+        cancel: func();
+        fail: func(message: string);
+        fail-request: func(action-id: u64, message: string) -> result<_, runtime-error>;
+        timeout-request: func(action-id: u64) -> result<_, runtime-error>;
+        begin-response: func(action-id: u64, status: u16, headers: list<header>) -> result<bool, runtime-error>;
+        push-response: func(bytes: list<u8>) -> result<bool, runtime-error>;
+        push-response-for: func(action-id: u64, bytes: list<u8>) -> result<bool, runtime-error>;
+        finish-response: func() -> result<_, runtime-error>;
+        finish-response-for: func(action-id: u64) -> result<_, runtime-error>;
+    }
+    create: func(endpoint: string, legacy: bool) -> result<remote, runtime-error>;
+    create-auto: func(endpoint: string) -> result<remote, runtime-error>;
+}
+
+world mcpx {
+    export engine;
+}

@@ -1,0 +1,166 @@
+{
+  "cases": [
+    {
+      "cache_release_requested_bytes": 2164,
+      "cache_release_to_source_ratio": 25.458823529411763,
+      "cache_stats_before_clear": {
+        "capacity": 128,
+        "compilations": 1,
+        "counters_saturated": false,
+        "entries": 1,
+        "evictions": 0,
+        "hits": 1,
+        "misses": 1
+      },
+      "cold_bind_ns": 26340,
+      "cold_requested_allocation_bytes": 11877,
+      "name": "scalar",
+      "registry_source_charge_bytes": 0,
+      "root_schema_bytes": 85,
+      "validation_with_clone_and_size_check_100_ns": 13455,
+      "warm_rebind_ns": 2024
+    },
+    {
+      "cache_release_requested_bytes": 247926,
+      "cache_release_to_source_ratio": 17.388553794361062,
+      "cache_stats_before_clear": {
+        "capacity": 128,
+        "compilations": 1,
+        "counters_saturated": false,
+        "entries": 1,
+        "evictions": 0,
+        "hits": 1,
+        "misses": 1
+      },
+      "cold_bind_ns": 480075,
+      "cold_requested_allocation_bytes": 756188,
+      "name": "properties_256",
+      "registry_source_charge_bytes": 0,
+      "root_schema_bytes": 14258,
+      "validation_with_clone_and_size_check_100_ns": 2460142,
+      "warm_rebind_ns": 76686
+    },
+    {
+      "cache_release_requested_bytes": 81108,
+      "cache_release_to_source_ratio": 8.932599118942731,
+      "cache_stats_before_clear": {
+        "capacity": 128,
+        "compilations": 1,
+        "counters_saturated": false,
+        "entries": 1,
+        "evictions": 0,
+        "hits": 1,
+        "misses": 1
+      },
+      "cold_bind_ns": 150717,
+      "cold_requested_allocation_bytes": 217957,
+      "name": "enums_1000",
+      "registry_source_charge_bytes": 0,
+      "root_schema_bytes": 9080,
+      "validation_with_clone_and_size_check_100_ns": 12203,
+      "warm_rebind_ns": 38033
+    },
+    {
+      "cache_release_requested_bytes": 9136,
+      "cache_release_to_source_ratio": 26.328530259365994,
+      "cache_stats_before_clear": {
+        "capacity": 128,
+        "compilations": 1,
+        "counters_saturated": false,
+        "entries": 1,
+        "evictions": 0,
+        "hits": 1,
+        "misses": 1
+      },
+      "cold_bind_ns": 50346,
+      "cold_requested_allocation_bytes": 46033,
+      "name": "conditions_refs",
+      "registry_source_charge_bytes": 0,
+      "root_schema_bytes": 347,
+      "validation_with_clone_and_size_check_100_ns": 22633,
+      "warm_rebind_ns": 2495
+    },
+    {
+      "cache_release_requested_bytes": 50015,
+      "cache_release_to_source_ratio": 26.18586387434555,
+      "cache_stats_before_clear": {
+        "capacity": 128,
+        "compilations": 1,
+        "counters_saturated": false,
+        "entries": 1,
+        "evictions": 0,
+        "hits": 1,
+        "misses": 1
+      },
+      "cold_bind_ns": 190363,
+      "cold_requested_allocation_bytes": 241289,
+      "name": "regexes_32",
+      "registry_source_charge_bytes": 0,
+      "root_schema_bytes": 1910,
+      "validation_with_clone_and_size_check_100_ns": 316704,
+      "warm_rebind_ns": 9007
+    },
+    {
+      "cache_release_requested_bytes": 248691,
+      "cache_release_to_source_ratio": 17.20211662170575,
+      "cache_stats_before_clear": {
+        "capacity": 128,
+        "compilations": 1,
+        "counters_saturated": false,
+        "entries": 1,
+        "evictions": 0,
+        "hits": 1,
+        "misses": 1
+      },
+      "cold_bind_ns": 182177,
+      "cold_requested_allocation_bytes": 385011,
+      "name": "external_properties_256",
+      "registry_source_charge_bytes": 14416,
+      "root_schema_bytes": 41,
+      "validation_with_clone_and_size_check_100_ns": 2443711,
+      "warm_rebind_ns": 431
+    }
+  ],
+  "diagnostic_cases": [
+    {
+      "eager_prefix_32_ns": 9078,
+      "eager_prefix_32_requested_bytes": 21178,
+      "mcpx_first_error_ns": 1743,
+      "mcpx_first_error_requested_bytes": 408,
+      "missing_fields": 64
+    },
+    {
+      "eager_prefix_32_ns": 37371,
+      "eager_prefix_32_requested_bytes": 156026,
+      "mcpx_first_error_ns": 321,
+      "mcpx_first_error_requested_bytes": 408,
+      "missing_fields": 512
+    },
+    {
+      "eager_prefix_32_ns": 376659,
+      "eager_prefix_32_requested_bytes": 1234810,
+      "mcpx_first_error_ns": 701,
+      "mcpx_first_error_requested_bytes": 408,
+      "missing_fields": 4096
+    }
+  ],
+  "environment": {
+    "allocator": "stats_alloc 0.1.10 / System",
+    "arch": "x86_64",
+    "cpu": "AMD Ryzen 9 9950X 16-Core Processor",
+    "os": "linux",
+    "pointer_bits": 64,
+    "profile": "release",
+    "rustc": "rustc 1.100.0 (0ef1bc386 2026-11-09)",
+    "threads": 1
+  },
+  "format_version": 2,
+  "method": {
+    "bytes": "requested Rust allocator bytes released by clear after dropping all binding pins; includes cache entry metadata, excludes allocator overhead/RSS and shared statics/registry resources",
+    "diagnostics": "one missing-required validation per width; compile outside regions; compare mcpx first-error path including input checks against previous raw-validator eager iter_errors/take(32) path; requested allocation traffic, not peak live heap",
+    "limits": "native measurement only; no claim of a hard compiled-memory bound or Wasm heap equivalence",
+    "realloc": "stats_alloc bytes_allocated/bytes_deallocated already include realloc growth/shrink; bytes_reallocated is not added again",
+    "timings": "one cold bind and one warm rebind per shape after warming meta-schema statics; observational samples, not percentile or regression thresholds"
+  },
+  "schema_policy_version": 2
+}

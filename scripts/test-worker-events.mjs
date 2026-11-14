@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import { WorkerEvents } from "../web/worker-events.js";
+const frames = [];
+const events = new WorkerEvents(frame => frames.push(frame), { maxInFlight: 2, eventCapacity: 8, eventBytes: 128 * 1024 });
+const coreLoss = dropped => ({ operation_id: 0, kind: "lagged", payload: { source: "core", dropped } });
+events.push(coreLoss(5)); await Promise.resolve();
+assert.equal(frames.length, 1);
+assert.equal(events.snapshot().eventRecords, 1);
+assert.equal(frames[0].coreDropped, 5);
+for (let i = 0; i < 100; i++) { events.push(coreLoss(1)); await Promise.resolve(); }
+assert.equal(frames.length, 1, "Unacknowledged loss-only frames grew without bound");
+assert.equal(events.sent.size, 1);
+events.acknowledge(frames[0].batch); await Promise.resolve();
+assert.equal(frames[1].coreDropped, 100);
+events.push(coreLoss(7)); await Promise.resolve();
+const remaining = events.close();
+assert.deepEqual(remaining, { dropped: 0, coreDropped: 7 });
+assert.equal(events.snapshot().coreDroppedEvents, 112);
+events.acknowledge(frames[1].batch); await Promise.resolve();
+assert.equal(frames.length, 2, "Close double-published its remaining loss count");
+assert.equal(events.snapshot().eventRecords, 0);
+console.log("PASS worker event credits: bounded loss-only ACKs, independent core counts and close remainder");

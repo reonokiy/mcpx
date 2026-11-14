@@ -1,0 +1,141 @@
+{
+  "cases": [
+    {
+      "cache_release_requested_bytes": 2164,
+      "cache_release_to_source_ratio": 25.458823529411763,
+      "cache_stats_before_clear": {
+        "capacity": 128,
+        "compilations": 1,
+        "counters_saturated": false,
+        "entries": 1,
+        "evictions": 0,
+        "hits": 1,
+        "misses": 1
+      },
+      "cold_bind_ns": 21281,
+      "cold_requested_allocation_bytes": 11877,
+      "name": "scalar",
+      "registry_source_charge_bytes": 0,
+      "root_schema_bytes": 85,
+      "validation_with_clone_and_size_check_100_ns": 14959,
+      "warm_rebind_ns": 1873
+    },
+    {
+      "cache_release_requested_bytes": 247926,
+      "cache_release_to_source_ratio": 17.388553794361062,
+      "cache_stats_before_clear": {
+        "capacity": 128,
+        "compilations": 1,
+        "counters_saturated": false,
+        "entries": 1,
+        "evictions": 0,
+        "hits": 1,
+        "misses": 1
+      },
+      "cold_bind_ns": 468803,
+      "cold_requested_allocation_bytes": 756188,
+      "name": "properties_256",
+      "registry_source_charge_bytes": 0,
+      "root_schema_bytes": 14258,
+      "validation_with_clone_and_size_check_100_ns": 2365664,
+      "warm_rebind_ns": 67308
+    },
+    {
+      "cache_release_requested_bytes": 81108,
+      "cache_release_to_source_ratio": 8.932599118942731,
+      "cache_stats_before_clear": {
+        "capacity": 128,
+        "compilations": 1,
+        "counters_saturated": false,
+        "entries": 1,
+        "evictions": 0,
+        "hits": 1,
+        "misses": 1
+      },
+      "cold_bind_ns": 139024,
+      "cold_requested_allocation_bytes": 217957,
+      "name": "enums_1000",
+      "registry_source_charge_bytes": 0,
+      "root_schema_bytes": 9080,
+      "validation_with_clone_and_size_check_100_ns": 14207,
+      "warm_rebind_ns": 35938
+    },
+    {
+      "cache_release_requested_bytes": 9136,
+      "cache_release_to_source_ratio": 26.328530259365994,
+      "cache_stats_before_clear": {
+        "capacity": 128,
+        "compilations": 1,
+        "counters_saturated": false,
+        "entries": 1,
+        "evictions": 0,
+        "hits": 1,
+        "misses": 1
+      },
+      "cold_bind_ns": 45417,
+      "cold_requested_allocation_bytes": 46033,
+      "name": "conditions_refs",
+      "registry_source_charge_bytes": 0,
+      "root_schema_bytes": 347,
+      "validation_with_clone_and_size_check_100_ns": 25428,
+      "warm_rebind_ns": 2505
+    },
+    {
+      "cache_release_requested_bytes": 50015,
+      "cache_release_to_source_ratio": 26.18586387434555,
+      "cache_stats_before_clear": {
+        "capacity": 128,
+        "compilations": 1,
+        "counters_saturated": false,
+        "entries": 1,
+        "evictions": 0,
+        "hits": 1,
+        "misses": 1
+      },
+      "cold_bind_ns": 157019,
+      "cold_requested_allocation_bytes": 176248,
+      "name": "regexes_32",
+      "registry_source_charge_bytes": 0,
+      "root_schema_bytes": 1910,
+      "validation_with_clone_and_size_check_100_ns": 320631,
+      "warm_rebind_ns": 8226
+    },
+    {
+      "cache_release_requested_bytes": 248829,
+      "cache_release_to_source_ratio": 17.211662170574808,
+      "cache_stats_before_clear": {
+        "capacity": 128,
+        "compilations": 1,
+        "counters_saturated": false,
+        "entries": 1,
+        "evictions": 0,
+        "hits": 1,
+        "misses": 1
+      },
+      "cold_bind_ns": 163701,
+      "cold_requested_allocation_bytes": 385011,
+      "name": "external_properties_256",
+      "registry_source_charge_bytes": 14416,
+      "root_schema_bytes": 41,
+      "validation_with_clone_and_size_check_100_ns": 2392266,
+      "warm_rebind_ns": 371
+    }
+  ],
+  "environment": {
+    "allocator": "stats_alloc 0.1.10 / System",
+    "arch": "x86_64",
+    "cpu": "AMD Ryzen 9 9950X 16-Core Processor",
+    "os": "linux",
+    "pointer_bits": 64,
+    "profile": "release",
+    "rustc": "rustc 1.100.0 (0ef1bc386 2026-11-09)",
+    "threads": 1
+  },
+  "format_version": 1,
+  "method": {
+    "bytes": "requested Rust allocator bytes released by clear after dropping all binding pins; includes cache entry metadata, excludes allocator overhead/RSS and shared statics/registry resources",
+    "limits": "native measurement only; no claim of a hard compiled-memory bound or Wasm heap equivalence",
+    "realloc": "stats_alloc bytes_allocated/bytes_deallocated already include realloc growth/shrink; bytes_reallocated is not added again",
+    "timings": "one cold bind and one warm rebind per shape after warming meta-schema statics; observational samples, not percentile or regression thresholds"
+  }
+}

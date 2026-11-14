@@ -1,0 +1,132 @@
+name: checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+          targets: wasm32-unknown-unknown, wasm32-wasip2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bash scripts/check-msrv.sh
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh fish
+      - run: bash scripts/install-wasmtime.sh
+      - run: node scripts/smoke-native.mjs
+      - run: node scripts/smoke-library.mjs
+      - run: node scripts/smoke-wasi-cli.mjs
+      - run: node scripts/smoke-wasi-notifications.mjs
+      - run: node scripts/smoke-wasi-recovery.mjs
+      - run: node scripts/smoke-legacy-resume.mjs --wasi
+      - run: node scripts/smoke-response-resume.mjs --wasi
+      - run: node scripts/smoke-wasi-response-recovery.mjs
+      - run: node scripts/smoke-response-resume-sdk.mjs --wasi
+      - run: node scripts/smoke-wasi-queue.mjs
+      - run: node scripts/smoke-wasi-credentials.mjs
+      - run: node scripts/smoke-wasi-controls.mjs
+      - run: node scripts/smoke-wasi-reactor.mjs
+      - run: node scripts/smoke-wasi-reconnect.mjs
+      - run: node scripts/smoke-wasi-sdk.mjs
+      - run: node scripts/smoke-config-cli.mjs
+      - run: node scripts/smoke-shells.mjs native
+      - run: node scripts/smoke-shells.mjs wasi
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: cargo build -p mcpx-cli --locked
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh fish
+      - run: node scripts/smoke-shells.mjs native
+      - run: node scripts/smoke-native.mjs
+      - run: node scripts/smoke-config-cli.mjs native
+      - run: cargo build -p mcpx-native --examples --locked
+      - run: node scripts/smoke-library.mjs
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+          targets: wasm32-unknown-unknown, wasm32-wasip2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - run: cargo install wasm-bindgen-cli --version 0.2.130 --locked --root target/tools
+      - run: bash scripts/build-wasm.sh
+      - run: cargo build -p mcpx-native --example sdk_http_server --locked
+      - run: npm run test:wasm
+  wasi-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+          targets: wasm32-wasip2
+          components: clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bash scripts/install-wasmtime.sh
+      - run: cargo clippy -p mcpx-wasi -p mcpx-cli -p mcpx-config --all-targets --target wasm32-wasip2 --locked -- -D warnings
+      - run: cargo build -p mcpx-cli --target wasm32-wasip2 --locked
+      - run: cargo build -p mcpx-wasi --examples --target wasm32-wasip2 --locked
+      - run: cargo build -p mcpx-native --example sdk_http_server --locked
+      - run: node scripts/smoke-wasi-cli.mjs
+      - run: node scripts/smoke-wasi-notifications.mjs
+      - run: node scripts/smoke-wasi-recovery.mjs
+      - run: node scripts/smoke-legacy-resume.mjs --wasi
+      - run: node scripts/smoke-response-resume.mjs --wasi
+      - run: node scripts/smoke-wasi-response-recovery.mjs
+      - run: node scripts/smoke-response-resume-sdk.mjs --wasi
+      - run: node scripts/smoke-wasi-queue.mjs
+      - run: node scripts/smoke-wasi-credentials.mjs
+      - run: node scripts/smoke-wasi-controls.mjs
+      - run: node scripts/smoke-wasi-reactor.mjs
+      - run: node scripts/smoke-wasi-reconnect.mjs
+      - run: node scripts/smoke-wasi-sdk.mjs
+      - run: node scripts/smoke-config-cli.mjs wasi
+  wasi-https:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+          targets: wasm32-wasip2
+          components: clippy, rustfmt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: cargo fmt --manifest-path tools/wasi-https-host/Cargo.toml --check
+      - run: cargo clippy --manifest-path tools/wasi-https-host/Cargo.toml --target-dir target/tools/wasi-https-host --locked -- -D warnings
+      - run: cargo build --manifest-path tools/wasi-https-host/Cargo.toml --target-dir target/tools/wasi-https-host --locked
+      - run: cargo build -p mcpx-native --example sdk_http_server --locked
+      - run: cargo build -p mcpx-wasi --example sdk_interop --target wasm32-wasip2 --locked
+      - run: npm run test:wasi-https
+      - run: rustup toolchain install 1.88.0 --profile minimal --target wasm32-wasip2
+      - run: cargo +1.88.0 build -p mcpx-native --example sdk_http_server --locked
+      - run: cargo +1.88.0 build -p mcpx-wasi --example sdk_interop --target wasm32-wasip2 --locked
+      - run: npm run test:wasi-https

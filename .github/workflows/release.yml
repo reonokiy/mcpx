@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native:
+    name: Native (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: cargo build --release -p mcpx-cli --locked
+      - run: node scripts/smoke-release.mjs --native
+      - run: python scripts/package-release.py native
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.os }}
+          path: dist/release/*.tar.gz
+          if-no-files-found: error
+
+  wasm:
+    name: Web, Component and WASI
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+          targets: wasm32-unknown-unknown, wasm32-wasip2
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --ignore-scripts
+      - name: Install the matching Wasm binding tool
+        run: cargo install wasm-bindgen-cli --version 0.2.130 --locked --root target/tools
+      - run: cargo build --release -p mcpx-cli --target wasm32-wasip2 --locked
+      - run: bash scripts/build-wasm.sh --release
+      - name: Check the packaged Web runtimes
+        run: |
+          node --input-type=module -e "import {readFile} from 'node:fs/promises'; import init,{Runtime} from './dist/web/mcpx_web.js'; await init({module_or_path:await readFile('dist/web/mcpx_web_bg.wasm')}); const r=Runtime.auto('http://127.0.0.1/mcp'); r.free();"
+          node --input-type=module -e "import {engine} from './dist/component/mcpx_component.js'; const r=engine.createAuto('http://127.0.0.1/mcp'); r[Symbol.dispose]();"
+      - run: python scripts/package-release.py wasm
+      - run: python scripts/package-release.py source
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wasm-and-source
+          path: dist/release/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: Publish release assets
+    needs: [native, wasm]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/release
+          merge-multiple: true
+      - name: Generate checksums
+        run: |
+          cd dist/release
+          sha256sum *.tar.gz > SHA256SUMS
+      - name: Create the release and upload all assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          args=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then args+=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "mcpx $GITHUB_REF_NAME" --notes-file "docs/releases/$GITHUB_REF_NAME.md" "${args[@]}" dist/release/*
