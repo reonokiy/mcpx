@@ -179,6 +179,8 @@ env={ACCESS_TOKEN="do-not-print-environment"}
     assert.equal(rawUnfinished.output_validation,"indeterminate");
     assert.equal(rawUnfinished.raw.structuredContent.message,COSTLY_VALUE);
     assert.equal(message(ok(await execute(["--output","json","call","demo","echo","--message","default-config"],{cwd:true}))),"default-config");
+    assert.equal(message(ok(await execute(["--output","json","demo","echo","--message","shorthand-default"],{cwd:true}))),"shorthand-default");
+    assert.match(ok(await execute(["demo","-h"],{cwd:true})),/Usage: mcpx demo/);
     assert.equal(message(ok(await execute(["--output","json","call","demo","echo","--args-file","args.json"],{cwd:true}))),"named-argument-file");
     assert.equal(JSON.parse(ok(await execute(["--output","json","--schema-registry","schemas.json","call","demo","ref_echo","--args",'{"message":"relative-schema"}'],{cwd:true}))).value.output_validation,"valid");
     if (kind === "native") {

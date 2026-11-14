@@ -595,7 +595,9 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
             arguments: argv,
         }
     } else {
-        if matches.get_one::<String>("config").is_none() && !default_config().is_file() {
+        if matches.get_one::<String>("config").is_none()
+            && !crate::shared::file_path(&default_config())?.is_file()
+        {
             return Err(Error::local(
                 "CliUsage",
                 format!(

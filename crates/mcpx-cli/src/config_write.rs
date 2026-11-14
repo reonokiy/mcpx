@@ -61,7 +61,12 @@ pub(crate) fn add(invocation: &Invocation) -> Result<u8> {
         document["schema_version"] = value(1);
     }
     // Move the original table rather than rewriting it, preserving its comments.
-    if let Some(legacy) = document.remove("servers") {
+    if let Some(legacy) = document.remove("servers")
+        && document
+            .get("profiles")
+            .and_then(Item::as_table_like)
+            .is_none_or(|profiles| profiles.is_empty())
+    {
         table(table(document.as_table_mut(), "profiles")?, "default")?["servers"] = legacy;
     }
     if document
@@ -119,6 +124,12 @@ pub(crate) fn add(invocation: &Invocation) -> Result<u8> {
 }
 
 fn persist(path: &Path, text: &str) -> Result<()> {
+    let resolved = match fs::symlink_metadata(path) {
+        Ok(_) => Some(fs::canonicalize(path).map_err(|_| write_error())?),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(_) => return Err(write_error()),
+    };
+    let path = resolved.as_deref().unwrap_or(path);
     let parent = path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())

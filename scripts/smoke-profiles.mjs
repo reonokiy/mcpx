@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {mkdtemp, mkdir, readFile, writeFile, rm} from 'node:fs/promises';
+import {mkdtemp, mkdir, readFile, writeFile, rm, symlink, lstat} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 const exec = promisify(execFile);
@@ -75,6 +75,21 @@ try {
   assert.doesNotMatch((await run('servers','list')).stdout,/local/);
   await run('--config',legacy,'profiles','use','default');
   assert.match((await run('--config',legacy,'profiles','list')).stdout,/default \(default\)/);
+  const mixed = join(root,'empty-legacy.toml');
+  await writeFile(mixed,'servers = {}\n[profiles.default.servers.keep]\ntransport="http"\nurl="https://example.com/mcp"\n');
+  await run('--config',mixed,'--profile','dev','servers','add','added','--url','https://dev.example.com/mcp');
+  assert.match((await run('--config',mixed,'servers','list')).stdout,/keep/);
+  assert.match((await run('--config',mixed,'--profile','dev','servers','list')).stdout,/added/);
+  if (process.platform !== 'win32') {
+    const link=join(root,'child','linked.toml');
+    await symlink('../mcpx.toml',link);
+    await run('--config',link,'profiles','use','dev');
+    assert.equal((await lstat(link)).isSymbolicLink(),true);
+    assert.match((await run('profiles','list')).stdout,/dev \(default\)/);
+    await run('--config',link,'servers','add','via-link','--url','https://example.com/mcp');
+    assert.equal((await lstat(link)).isSymbolicLink(),true);
+    assert.match((await run('servers','list')).stdout,/via-link/);
+  }
   console.log('PASS profiles: isolated duplicate names, add HTTP/stdio, atomic validation, migration, discovery, completion and saved default selection');
 } finally {
   await rm(root, {recursive: true, force: true});
