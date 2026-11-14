@@ -1533,7 +1533,7 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "mcpx"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "mcpx-command",
  "mcpx-config",
@@ -1545,7 +1545,7 @@ dependencies = [
 
 [[package]]
 name = "mcpx-auth"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "constant_time_eq",
  "mcpx-core",
@@ -1557,7 +1557,7 @@ dependencies = [
 
 [[package]]
 name = "mcpx-cli"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "clap",
  "mcpx",
@@ -1571,7 +1571,7 @@ dependencies = [
 
 [[package]]
 name = "mcpx-command"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "clap",
  "mcpx-core",
@@ -1582,7 +1582,7 @@ dependencies = [
 
 [[package]]
 name = "mcpx-component"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "mcpx-command",
  "mcpx-core",
@@ -1593,7 +1593,7 @@ dependencies = [
 
 [[package]]
 name = "mcpx-config"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "mcpx-core",
  "serde",
@@ -1602,7 +1602,7 @@ dependencies = [
 
 [[package]]
 name = "mcpx-core"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "fancy-regex",
  "jsonschema",
@@ -1617,7 +1617,7 @@ dependencies = [
 
 [[package]]
 name = "mcpx-native"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "axum",
  "fs2",
@@ -1642,7 +1642,7 @@ dependencies = [
 
 [[package]]
 name = "mcpx-protocol"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "base64 0.22.1",
  "serde",
@@ -1652,7 +1652,7 @@ dependencies = [
 
 [[package]]
 name = "mcpx-wasi"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "mcpx-command",
  "mcpx-core",
@@ -1664,7 +1664,7 @@ dependencies = [
 
 [[package]]
 name = "mcpx-web"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "mcpx-command",
  "mcpx-core",
