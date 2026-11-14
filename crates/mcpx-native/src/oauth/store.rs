@@ -111,7 +111,10 @@ impl TokenStore {
         loop {
             match fs2::FileExt::try_lock_exclusive(&file) {
                 Ok(()) => return Ok(file),
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                Err(e)
+                    if e.kind() == std::io::ErrorKind::WouldBlock
+                        || e.raw_os_error() == fs2::lock_contended_error().raw_os_error() =>
+                {
                     tokio::time::sleep(Duration::from_millis(25)).await
                 }
                 Err(_) => return Err(store_error()),
