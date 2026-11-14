@@ -32,7 +32,7 @@ pub enum Route {
         client_id: Option<String>,
         scopes: Vec<String>,
         no_browser: bool,
-        file_store: bool,
+        store: String,
         redirect_port: Option<u16>,
     },
     ServerHelp {
@@ -240,7 +240,8 @@ fn cli_command(is_wasi: bool) -> Command {
                         .arg(
                             Arg::new("store")
                                 .long("store")
-                                .value_parser(["keyring", "file"]),
+                                .help("Credential storage: auto tries keyring then private files (default: auto)")
+                                .value_parser(["auto", "keyring", "file"]),
                         )
                 })),
         )
@@ -450,8 +451,11 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
             .arg(
                 Arg::new("store")
                     .long("store")
-                    .default_value("keyring")
-                    .value_parser(["keyring", "file"]),
+                    .help(
+                        "Credential storage: auto tries keyring then private files (default: auto)",
+                    )
+                    .default_value("auto")
+                    .value_parser(["auto", "keyring", "file"]),
             )
             .try_get_matches_from(&argv);
         let parsed = match parsed {
@@ -483,9 +487,7 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
                 .unwrap_or_default(),
             redirect_port: parsed.get_one::<u16>("redirect-port").copied(),
             no_browser: parsed.get_flag("no-browser"),
-            file_store: parsed
-                .get_one::<String>("store")
-                .is_some_and(|s| s == "file"),
+            store: parsed.get_one::<String>("store").unwrap().clone(),
         }
     } else if route == "complete" {
         let mut command = Command::new("complete")

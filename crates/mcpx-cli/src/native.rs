@@ -69,7 +69,7 @@ async fn run() -> mcpx::Result<u8> {
         client_id,
         scopes,
         no_browser,
-        file_store,
+        store,
         redirect_port,
         ..
     } = &invocation.route
@@ -92,10 +92,10 @@ async fn run() -> mcpx::Result<u8> {
                             callback_stdin: *no_browser,
                             redirect_port: *redirect_port,
                             profile: Some(profile.into()),
-                            store: if *file_store {
-                                mcpx::native::oauth::StoreKind::File
-                            } else {
-                                mcpx::native::oauth::StoreKind::Keyring
+                            store: match store.as_str() {
+                                "file" => mcpx::native::oauth::StoreKind::File,
+                                "keyring" => mcpx::native::oauth::StoreKind::Keyring,
+                                _ => mcpx::native::oauth::StoreKind::Auto,
                             },
                         },
                         |url| {
@@ -105,6 +105,15 @@ async fn run() -> mcpx::Result<u8> {
                         invocation.timeout,
                     )
                     .await?;
+                    if let Some(path) =
+                        mcpx::native::oauth::TokenStore::for_profile(endpoint, profile)?
+                            .file_storage_path()?
+                    {
+                        eprintln!(
+                            "Credentials saved in private file: {}",
+                            safe(&path.display().to_string())
+                        );
+                    }
                     println!("Logged in.");
                 }
                 "status" => {

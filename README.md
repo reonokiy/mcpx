@@ -130,7 +130,12 @@ mcpx profiles use dev
 Explicit `--profile NAME` overrides the saved choice without changing it.
 Without a saved choice, the default is `default`.
 The selected profile also scopes OAuth login, status, logout,
-and automatic token refresh. For remote/headless login, use `mcpx --timeout 300 auth login SERVER --no-browser`.
+and automatic token refresh. Login storage defaults to `auto`: use the system keyring when available, otherwise
+fall back to private file storage (0600 on Unix) and print its path. Use
+`--store keyring` to require the keyring or `--store file` to choose files explicitly.
+Refresh and logout follow the backend saved with the profile.
+
+For remote/headless login, use `mcpx --timeout 300 auth login SERVER --no-browser`.
 After authorizing in a browser, paste its complete callback URL into the waiting
 terminal and press Enter; a loopback redirect also works. Invalid or stale callbacks
 are rejected without ending the pending login. If forwarding a callback with curl,

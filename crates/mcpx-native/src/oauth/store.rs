@@ -11,6 +11,7 @@ use std::{
 #[serde(rename_all = "lowercase")]
 pub enum StoreKind {
     #[default]
+    Auto,
     Keyring,
     File,
 }
@@ -133,6 +134,7 @@ impl TokenStore {
     }
     pub fn load(&self) -> Result<Grant> {
         let source = match self.kind()? {
+            StoreKind::Auto => return Err(store_error()),
             StoreKind::File => fs::read(self.path("tokens.json")).map_err(|_| store_error())?,
             StoreKind::Keyring => self
                 .entry()?
@@ -146,16 +148,37 @@ impl TokenStore {
         serde_json::from_slice(&source).map_err(|_| store_error())
     }
     pub fn save(&self, grant: &Grant, kind: Option<StoreKind>) -> Result<()> {
+        self.save_with_keyring(grant, kind, |value| {
+            self.entry()?.set_password(value).map_err(|_| store_error())
+        })
+    }
+    fn save_with_keyring(
+        &self,
+        grant: &Grant,
+        kind: Option<StoreKind>,
+        keyring: impl FnOnce(&str) -> Result<()>,
+    ) -> Result<()> {
         let previous = self.kind().ok();
         let kind = kind.unwrap_or(previous.unwrap_or_default());
         let value = serde_json::to_string(grant).map_err(|_| store_error())?;
-        match kind {
-            StoreKind::File => self.write(self.path("tokens.json"), value.as_bytes())?,
-            StoreKind::Keyring => self
-                .entry()?
-                .set_password(&value)
-                .map_err(|_| store_error())?,
-        }
+        let kind = match kind {
+            StoreKind::Auto => {
+                if keyring(&value).is_ok() {
+                    StoreKind::Keyring
+                } else {
+                    self.write(self.path("tokens.json"), value.as_bytes())?;
+                    StoreKind::File
+                }
+            }
+            StoreKind::File => {
+                self.write(self.path("tokens.json"), value.as_bytes())?;
+                StoreKind::File
+            }
+            StoreKind::Keyring => {
+                keyring(&value)?;
+                StoreKind::Keyring
+            }
+        };
         self.write(
             self.path("profile.json"),
             &serde_json::to_vec(&Profile { store: kind }).map_err(|_| store_error())?,
@@ -170,8 +193,12 @@ impl TokenStore {
         }
         Ok(())
     }
+    pub fn file_storage_path(&self) -> Result<Option<PathBuf>> {
+        Ok((self.kind()? == StoreKind::File).then(|| self.path("tokens.json")))
+    }
     pub fn delete(&self) -> Result<()> {
         match self.kind() {
+            Ok(StoreKind::Auto) => return Err(store_error()),
             Ok(StoreKind::Keyring) => match self.entry()?.delete_credential() {
                 Ok(()) | Err(keyring::Error::NoEntry) => {}
                 Err(_) => return Err(store_error()),
@@ -193,4 +220,83 @@ fn store_error() -> Error {
         "TokenStoreUnavailable",
         "cannot access credential store; use auth login --store file for explicit private-file storage",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn grant() -> Grant {
+        serde_json::from_value(serde_json::json!({
+            "resource":"https://example.com/mcp", "client_id":"test-client", "context_id":"test-context",
+            "server":{"issuer":"https://example.com", "authorization_endpoint":"https://example.com/authorize", "token_endpoint":"https://example.com/token"},
+            "tokens":{"access_token":"test-access", "refresh_token":"test-refresh", "expires_at":123, "scopes":[]}
+        })).unwrap()
+    }
+
+    #[test]
+    fn automatic_storage_falls_back_and_refresh_keeps_private_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = TokenStore {
+            directory: directory.path().join("auth"),
+            key: "test".into(),
+        };
+        store
+            .save_with_keyring(&grant(), Some(StoreKind::Auto), |_| Err(store_error()))
+            .unwrap();
+        assert!(matches!(store.kind().unwrap(), StoreKind::File));
+        assert_eq!(store.load().unwrap().tokens.access_token, "test-access");
+        assert_eq!(
+            store.file_storage_path().unwrap(),
+            Some(store.path("tokens.json"))
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(store.path("tokens.json"))
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o600
+            );
+            assert_eq!(
+                fs::metadata(&store.directory).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
+        let mut refreshed = grant();
+        refreshed.tokens.access_token = "refreshed".into();
+        store
+            .save_with_keyring(&refreshed, None, |_| {
+                panic!("refresh must keep the saved backend")
+            })
+            .unwrap();
+        assert_eq!(store.load().unwrap().tokens.access_token, "refreshed");
+        store.delete().unwrap();
+        assert!(!store.exists());
+        assert!(!store.path("tokens.json").exists());
+    }
+
+    #[test]
+    fn automatic_storage_prefers_keyring_and_explicit_keyring_never_falls_back() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = TokenStore {
+            directory: directory.path().join("auth"),
+            key: "test".into(),
+        };
+        store
+            .save_with_keyring(&grant(), Some(StoreKind::Auto), |_| Ok(()))
+            .unwrap();
+        assert!(matches!(store.kind().unwrap(), StoreKind::Keyring));
+        assert!(!store.path("tokens.json").exists());
+        assert!(
+            store
+                .save_with_keyring(&grant(), Some(StoreKind::Keyring), |_| Err(store_error()))
+                .is_err()
+        );
+        assert!(matches!(store.kind().unwrap(), StoreKind::Keyring));
+        assert!(!store.path("tokens.json").exists());
+    }
 }
