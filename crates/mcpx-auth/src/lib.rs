@@ -415,7 +415,8 @@ impl Authorization {
             discovery,
         })
     }
-    pub async fn complete(self, http: &mut impl Http, callback: &str, now: u64) -> Result<Grant> {
+    /// Validate a loopback response without consuming the pending transaction.
+    pub fn validate_callback(&self, callback: &str) -> Result<String> {
         let callback = Url::parse(callback)
             .map_err(|_| error("OAuthCallbackInvalid", "invalid authorization callback"))?;
         let mut origin = callback.clone();
@@ -469,6 +470,10 @@ impl Authorization {
         let code = read("code")?
             .filter(|v| !v.is_empty())
             .ok_or_else(|| error("OAuthCallbackInvalid", "authorization code is missing"))?;
+        Ok(code)
+    }
+    pub async fn complete(self, http: &mut impl Http, callback: &str, now: u64) -> Result<Grant> {
+        let code = self.validate_callback(callback)?;
         let response = http
             .send(Request {
                 url: self.discovery.server.token_endpoint.clone(),

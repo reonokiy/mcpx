@@ -215,6 +215,21 @@ pub async fn login(
                     .port(),
                 target.unwrap()
             );
+            if let Err(error) = transaction.validate_callback(&callback)
+                && error.code == "OAuthCallbackInvalid"
+            {
+                let text = "This callback does not match the pending login. Use the latest authorization URL from your terminal.";
+                let response = format!(
+                    "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain; charset=utf-8\r\nCache-Control: no-store\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}",
+                    text.len()
+                );
+                let _ = tokio::time::timeout(
+                    Duration::from_secs(1),
+                    stream.write_all(response.as_bytes()),
+                )
+                .await;
+                continue;
+            }
             let result = transaction.complete(&mut http, &callback, now()).await;
             let text = if result.is_ok() {
                 "Authorization received. Return to your terminal."

@@ -59,6 +59,17 @@ for(const mode of ["registered","dcr","cimd","well-known","oidc","legacy"]){
   const done=new Promise((resolve,reject)=>{child.once("error",reject);child.once("exit",code=>{settled=true;resolve(code);});});
   const timer=setTimeout(()=>child.kill(),15000);
   const url=await Promise.race([ready,done.then(code=>{throw new Error(`Login exited ${code}: ${stderr}`);})]);
+  const stale = new URL(new URL(url).searchParams.get("redirect_uri"));
+  stale.searchParams.set("code","stale-code");
+  stale.searchParams.set("state","previous-login-state");
+  for (const state of ["previous-login-state", ""]) {
+    stale.searchParams.set("state",state);
+    const rejected=await fetch(stale);
+    assert.equal(rejected.status,400);
+    assert.match(await rejected.text(),/latest authorization URL/);
+    assert.equal(exchanges,0,"An unrelated callback must never exchange tokens");
+    assert.equal(settled,false,"An unrelated callback must not terminate login");
+  }
   const result=await fetch(url);assert.equal(result.status,200);assert.match(await result.text(),/Return to your terminal/);assert.equal(await done,0,stderr);clearTimeout(timer);assert.ok(settled);assert.match(stdout,/Logged in/);
   assert.equal(authorizations,1);assert.equal(exchanges,1);assert.equal(registrations,mode==="registered"||mode==="cimd"?0:1);
   const tokens=(await readdir(directory)).find(name=>name.endsWith(".tokens.json"));assert.ok(tokens);const path=join(directory,tokens);const initial=JSON.parse(await readFile(path));
