@@ -110,6 +110,8 @@ pub struct LoginOptions {
     pub client_id: Option<String>,
     pub scopes: Vec<String>,
     pub no_browser: bool,
+    /// Explicitly allow pasting a callback URL through stdin.
+    pub callback_stdin: bool,
     pub store: StoreKind,
     pub redirect_port: Option<u16>,
     pub profile: Option<String>,
@@ -161,8 +163,43 @@ pub async fn login(
         if !options.no_browser {
             let _ = open::that(&transaction.url);
         }
+        let (sender, mut pasted) = tokio::sync::mpsc::channel::<String>(1);
+        if options.callback_stdin {
+            std::thread::spawn(move || {
+                use std::io::BufRead;
+                let stdin = std::io::stdin();
+                let mut input = stdin.lock();
+                loop {
+                    let mut line = String::new();
+                    let mut bounded = std::io::Read::take(&mut input, 16385);
+                    match bounded.read_line(&mut line) {
+                        Ok(0) | Err(_) => break,
+                        Ok(_) if line.len() > 16384 => break,
+                        Ok(_) => {
+                            if sender.blocking_send(line.trim().to_owned()).is_err() {
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            drop(sender);
+        }
+        let mut input_open = options.callback_stdin;
         let callback = loop {
-            let (mut stream, peer) = listener.accept().await.map_err(|_| {
+            let accepted = tokio::select! {
+                accepted = listener.accept() => accepted,
+                callback = pasted.recv(), if input_open => {
+                    let Some(callback) = callback else { input_open = false; continue; };
+                    if let Err(error) = transaction.validate_callback(&callback)
+                        && error.code == "OAuthCallbackInvalid" {
+                        continue;
+                    }
+                    break transaction.complete(&mut http, &callback, now()).await?;
+                }
+            };
+            let (mut stream, peer) = accepted.map_err(|_| {
                 error(
                     "OAuthCallbackUnavailable",
                     "authorization callback listener failed",

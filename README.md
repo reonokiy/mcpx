@@ -130,7 +130,13 @@ mcpx profiles use dev
 Explicit `--profile NAME` overrides the saved choice without changing it.
 Without a saved choice, the default is `default`.
 The selected profile also scopes OAuth login, status, logout,
-and automatic token refresh. Tokens stay in the existing credential store;
+and automatic token refresh. For remote/headless login, use `mcpx --timeout 300 auth login SERVER --no-browser`.
+After authorizing in a browser, paste its complete callback URL into the waiting
+terminal and press Enter; a loopback redirect also works. Invalid or stale callbacks
+are rejected without ending the pending login. If forwarding a callback with curl,
+quote the entire URL so the shell preserves `&state=...`.
+
+Tokens stay in the existing credential store;
 configuration files contain server settings and credential references only.
 `servers add` writes to the discovered configuration (or creates `./mcpx.toml`),
 creates the selected profile if needed, and rejects duplicate names within it.

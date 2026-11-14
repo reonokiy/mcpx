@@ -89,6 +89,7 @@ async fn run() -> mcpx::Result<u8> {
                             client_id: client_id.clone(),
                             scopes: scopes.clone(),
                             no_browser: *no_browser,
+                            callback_stdin: *no_browser,
                             redirect_port: *redirect_port,
                             profile: Some(profile.into()),
                             store: if *file_store {
@@ -97,7 +98,10 @@ async fn run() -> mcpx::Result<u8> {
                                 mcpx::native::oauth::StoreKind::Keyring
                             },
                         },
-                        |url| eprintln!("Open this URL to authorize mcpx:\n{}", safe(url)),
+                        |url| {
+                            eprintln!("Open this URL to authorize mcpx:\n{}", safe(url));
+                            if *no_browser { eprintln!("After authorizing, paste the complete callback URL here and press Enter (or use the loopback redirect)."); }
+                        },
                         invocation.timeout,
                     )
                     .await?;
