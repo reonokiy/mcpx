@@ -17,6 +17,15 @@ use std::{
         atomic::{AtomicUsize, Ordering},
     },
 };
+
+#[test]
+fn optional_login_lookup_does_not_impose_oauth_url_policy() {
+    for endpoint in ["not-an-endpoint", "http://192.0.2.1/mcp"] {
+        assert!(!OAuthCredentialProvider::has_login(endpoint).unwrap());
+        assert!(OAuthCredentialProvider::new(endpoint).is_err());
+    }
+}
+
 struct Fixture {
     origin: String,
     refresh_barrier: tokio::sync::Barrier,

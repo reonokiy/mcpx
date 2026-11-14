@@ -341,7 +341,16 @@ impl OAuthCredentialProvider {
     pub fn has_profile(endpoint: &str, profile: &str) -> Result<bool> {
         match TokenStore::for_profile(endpoint, profile) {
             Ok(store) => Ok(store.exists()),
-            Err(error) if error.code == "TokenStoreUnavailable" => Ok(false),
+            // An optional lookup must not apply OAuth's HTTPS policy to an
+            // anonymous connection. Explicit OAuth providers still validate it.
+            Err(error)
+                if matches!(
+                    error.code.as_str(),
+                    "TokenStoreUnavailable" | "OAuthMetadataInvalid"
+                ) =>
+            {
+                Ok(false)
+            }
             Err(error) => Err(error),
         }
     }

@@ -85,7 +85,9 @@ try {
       const dot=join(root,"zsh");await mkdir(dot);env.ZDOTDIR=dot;
       const extracted=process.env.MCPX_SHELL_ROOT;
       await writeFile(join(dot,".zshenv"),extracted?`module_path=(${quote(join(extracted,"usr/lib/x86_64-linux-gnu/zsh/5.9"))})\nfpath=(${quote(join(extracted,"usr/share/zsh/functions"))}/**/*(/))\n`:"");
-      command=[executable,"-d","-i"];setup=`autoload -Uz compinit; compinit -D; source ${quote(scriptPath)}; PROMPT='MCPX_READY> '; cd ${quote(root)}`;
+      // Ignore insecure runner-installed completion directories without prompting
+      // or trusting them; keep compinit's security checks enabled.
+      command=[executable,"-d","-i"];setup=`autoload -Uz compinit; compinit -i -D; source ${quote(scriptPath)}; PROMPT='MCPX_READY> '; cd ${quote(root)}`;
     } else {command=[executable,"--no-config","-i"];setup=`source ${quote(scriptPath)}; function fish_prompt; printf 'MCPX_READY> '; end; cd ${quote(root)}`;}
     const request=join(root,`request-${shell}.json`);await writeFile(request,JSON.stringify({command,setup,env,trace,results,marker,cases}));
     let output;

@@ -26,3 +26,6 @@ unsafe_code = "forbid"
 
 [profile.dev]
 debug = 0
+# This executable JIT-compiles each guest. An unoptimized Cranelift compiler
+# spends the guest's timeout compiling on small CI runners before any HTTP I/O.
+opt-level = 2

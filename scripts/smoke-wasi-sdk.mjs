@@ -18,10 +18,11 @@ async function execute(endpoint,protocol,scenario,{ca=tls?.ca,origin=new URL(end
   guests++;
   const child=spawn(httpsMode?httpsHost:wasmtime,httpsMode?["--ca-pem",ca,"--allow-origin",origin,guest,endpoint,protocol,scenario]:["run","-S","http",guest,endpoint,protocol,scenario],{stdio:["ignore","pipe","pipe"]});
   let stdout="",stderr="";
-  const timer=setTimeout(()=>child.kill("SIGKILL"),httpsMode?60000:20000);
+  const timeout=httpsMode?60000:20000;
+  const timer=setTimeout(()=>child.kill("SIGKILL"),timeout);
   child.stdout.on("data",chunk=>stdout+=chunk);child.stderr.on("data",chunk=>stderr+=chunk);
-  const code=await new Promise((resolve,reject)=>{child.once("error",reject);child.once("exit",resolve);});clearTimeout(timer);
-  assert.equal(code,0,`${protocol}/${scenario}: ${stderr}`);
+  const {code,signal}=await new Promise((resolve,reject)=>{child.once("error",reject);child.once("close",(code,signal)=>resolve({code,signal}));}).finally(()=>clearTimeout(timer));
+  assert.equal(code,0,`${protocol}/${scenario}${signal?` terminated by ${signal} (timeout ${timeout} ms)`:""}: ${stderr}`);
   assert.equal(JSON.parse(stdout).result,scenario);assert.equal(stderr,"");
 }
 async function sdk(protocol,format,scenario) {
