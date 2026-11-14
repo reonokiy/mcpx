@@ -339,7 +339,11 @@ impl OAuthCredentialProvider {
         Self::has_profile(endpoint, "default")
     }
     pub fn has_profile(endpoint: &str, profile: &str) -> Result<bool> {
-        Ok(TokenStore::for_profile(endpoint, profile)?.exists())
+        match TokenStore::for_profile(endpoint, profile) {
+            Ok(store) => Ok(store.exists()),
+            Err(error) if error.code == "TokenStoreUnavailable" => Ok(false),
+            Err(error) => Err(error),
+        }
     }
     /// Clear this identity in every clone. Existing I/O retains its already
     /// prepared credential snapshot; this cannot roll back an executed tool.
