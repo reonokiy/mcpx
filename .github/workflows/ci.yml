@@ -59,6 +59,7 @@ jobs:
       - run: node scripts/smoke-native.mjs
       - run: node scripts/smoke-oauth.mjs
       - run: node scripts/smoke-config-cli.mjs native
+      - run: node scripts/smoke-profiles.mjs
       - run: cargo build -p mcpx-native --examples --locked
       - run: node scripts/smoke-library.mjs
   wasm:

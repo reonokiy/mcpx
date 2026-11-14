@@ -366,13 +366,13 @@ WIT 方法本身短时、同步返回，宿主异步执行 drain-actions 取到�
 ```toml
 schema_version = 1
 
-[servers.github]
+[profiles.default.servers.github]
 transport = "http"
 url = "https://example.com/mcp"
 protocol = "auto"
 credential = "github-token"
 
-[servers.local]
+[profiles.default.servers.local]
 transport = "stdio"
 program = "example-mcp-server"
 args = ["--mode", "read-only"]

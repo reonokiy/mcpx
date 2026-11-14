@@ -49,6 +49,41 @@ pub(crate) fn print_json(value: &impl serde::Serialize) {
     );
 }
 
+pub(crate) fn print_profiles<S>(
+    config: &mcpx::config::Configuration<S>,
+    selected: Option<&str>,
+    output: &str,
+) {
+    let default = config.default_profile.as_deref().unwrap_or("default");
+    let selected = selected.unwrap_or(default);
+    let names: Vec<_> = if config.profiles.is_empty() {
+        vec!["default"]
+    } else {
+        config.profiles.keys().map(String::as_str).collect()
+    };
+    let profiles: Vec<_> = names.into_iter().map(|name| serde_json::json!({"name":name,"default":name == default,"selected":name == selected})).collect();
+    if output == "text" {
+        for profile in profiles {
+            println!(
+                "{}{}{}",
+                profile["name"].as_str().unwrap(),
+                if profile["default"] == true {
+                    " (default)"
+                } else {
+                    ""
+                },
+                if profile["selected"] == true {
+                    " *"
+                } else {
+                    ""
+                }
+            );
+        }
+    } else {
+        print_json(&profiles);
+    }
+}
+
 pub(crate) fn print_servers<'a>(
     servers: impl Iterator<Item = (&'a str, &'static str)>,
     output: &str,
@@ -128,6 +163,18 @@ pub(crate) fn status(result: mcpx::Result<u8>) -> u8 {
     match result {
         Ok(code) => code,
         Err(error) => {
+            if error.code == "CliUsage" {
+                eprintln!("{}", error.message);
+                return 2;
+            }
+            if error.code == "CommandParseError" {
+                eprintln!(
+                    "error: {}\n\n{}",
+                    error.message,
+                    crate::routing::usage_help(cfg!(all(target_os = "wasi", target_env = "p2")))
+                );
+                return 2;
+            }
             eprintln!("{}", serde_json::to_string(&error).unwrap());
             match error.code.as_str() {
                 "ValidationFailed"

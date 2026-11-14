@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp,writeFile,rm } from "node:fs/promises";
+import { mkdtemp,mkdir,writeFile,rm } from "node:fs/promises";
 import { join,resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { createMockServer,echo } from "./mock-server.mjs";
@@ -90,7 +90,7 @@ env={ACCESS_TOKEN="do-not-print-environment"}
     const path=name=>kind==="native"?join(root,name):`/data/${name}`;
     const execute=(args,{env={},grant=true,cwd=false}={})=>{
       const cleanEnv=Object.fromEntries(Object.entries(process.env).filter(([k])=>![credentialName,overrideName].includes(k)));
-      if(kind==="native")return launch(resolve("target/debug/mcpx"),args,{env:{...cleanEnv,...env},cwd:cwd?root:process.cwd()});
+      if(kind==="native")return launch(resolve("target/debug/mcpx"),args,{env:{...cleanEnv,...env},cwd:typeof cwd === "string" ? cwd : cwd?root:process.cwd()});
       const flags=["run","-S","http","-S","cli-exit-with-code"];
       if(grant)flags.push("--dir",`${root}::/data`);
       if(cwd)flags.push("-S","cwd=/data");
@@ -172,11 +172,37 @@ env={ACCESS_TOKEN="do-not-print-environment"}
     const rawUnfinished = JSON.parse(unfinished.stdout).value;
     assert.equal(rawUnfinished.output_validation,"indeterminate");
     assert.equal(rawUnfinished.raw.structuredContent.message,COSTLY_VALUE);
-    assert.equal(message(ok(await execute(["--output","json","demo","echo","--message","default-config"],{cwd:true}))),"default-config");
-    assert.equal(message(ok(await execute(["--output","json","demo","echo","--args-file","args.json"],{cwd:true}))),"named-argument-file");
-    assert.equal(JSON.parse(ok(await execute(["--output","json","--schema-registry","schemas.json","demo","ref_echo","--args",'{"message":"relative-schema"}'],{cwd:true}))).value.output_validation,"valid");
+    assert.equal(message(ok(await execute(["--output","json","call","demo","echo","--message","default-config"],{cwd:true}))),"default-config");
+    assert.equal(message(ok(await execute(["--output","json","call","demo","echo","--args-file","args.json"],{cwd:true}))),"named-argument-file");
+    assert.equal(JSON.parse(ok(await execute(["--output","json","--schema-registry","schemas.json","call","demo","ref_echo","--args",'{"message":"relative-schema"}'],{cwd:true}))).value.output_validation,"valid");
+    if (kind === "native") {
+      const nested=join(root,"nested","child");
+      await mkdir(nested,{recursive:true});
+      assert.equal(message(ok(await execute(["--output","json","demo","echo","--message","ancestor-config"],{cwd:nested}))),"ancestor-config");
+      assert.match(ok(await execute(["servers","list"],{cwd:nested})),/demo/);
+      await writeFile(join(root,"nested","mcpx.toml"),'[servers.nearest]\ntransport="http"\nurl="http://127.0.0.1:9/mcp"');
+      const nearest=ok(await execute(["servers","list"],{cwd:nested}));
+      assert.match(nearest,/nearest/);
+      assert.doesNotMatch(nearest,/demo/);
+      assert.match(ok(await execute(["--config",join(root,"mcpx.toml"),"servers","list"],{cwd:nested})),/demo/);
+      await writeFile(join(root,"nested","mcpx.toml"),'invalid toml');
+      fail(await execute(["servers","list"],{cwd:nested}),3,"ConfigurationError");
+    }
+    for (const args of [["--not-an-option"]]) {
+      const result=await execute(args);
+      assert.equal(result.code,2);
+      assert.match(result.stderr,/Usage: mcpx/);
+      assert.match(result.stderr,/Commands:/);
+      assert.doesNotMatch(result.stderr,/"execution_certainty"/);
+    }
+    for (const command of ["servers","auth"]) {
+      assert.match(ok(await execute([command])),/Commands:/);
+    }
+    assert.match(ok(await execute([])),/Commands:/);
     before=requests();
-    fail(await execute(["--url",endpoint,"--output","json","tools","--args-file",path("args.json")]),2,"CommandParseError");
+    const invalidTools=await execute(["--url",endpoint,"--output","json","tools","--args-file",path("args.json")]);
+    assert.equal(invalidTools.code,2);
+    assert.match(invalidTools.stderr,/Usage: mcpx/);
     fail(await execute(["--config",path("endpoint.toml"),"bad","echo","--message","bad-url"]),3,"InvalidEndpoint");
     assert.equal(requests(),before);
     console.log(`PASS ${kind} named configuration: offline list/help, shared strict schema, routes/collisions, completion, protocol overrides, files/default cwd, credentials/grants, session cleanup and no rejected business dispatch`);

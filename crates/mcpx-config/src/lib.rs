@@ -87,11 +87,21 @@ fn version() -> u32 {
 }
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields, bound(deserialize = "S: Deserialize<'de>"))]
+pub struct Profile<S> {
+    #[serde(default)]
+    pub servers: BTreeMap<String, S>,
+}
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields, bound(deserialize = "S: Deserialize<'de>"))]
 pub struct Configuration<S> {
     #[serde(default = "version")]
     pub schema_version: u32,
     #[serde(default)]
+    pub default_profile: Option<String>,
+    #[serde(default)]
     pub servers: BTreeMap<String, S>,
+    #[serde(default)]
+    pub profiles: BTreeMap<String, Profile<S>>,
 }
 pub type Config = Configuration<ServerConfig>;
 impl<S: DeserializeOwned + ServerPaths> Configuration<S> {
@@ -105,6 +115,29 @@ impl<S: DeserializeOwned + ServerPaths> Configuration<S> {
             return Err(Error::local(
                 "ConfigurationError",
                 "unsupported configuration version",
+            ));
+        }
+        if let Some(name) = &config.default_profile {
+            validate_alias(name)?;
+            if !config.profiles.contains_key(name)
+                && !(config.profiles.is_empty() && name == "default")
+            {
+                return Err(Error::local(
+                    "ConfigurationError",
+                    "default profile does not exist",
+                ));
+            }
+        }
+        for (name, profile) in &config.profiles {
+            validate_alias(name)?;
+            for alias in profile.servers.keys() {
+                validate_alias(alias)?;
+            }
+        }
+        if !config.servers.is_empty() && !config.profiles.is_empty() {
+            return Err(Error::local(
+                "ConfigurationError",
+                "cannot mix legacy servers with profiles",
             ));
         }
         for alias in config.servers.keys() {
@@ -134,11 +167,21 @@ impl<S: DeserializeOwned + ServerPaths> Configuration<S> {
         let mut config = Self::load_unresolved(path)?;
         // Resolving a working directory is relevant only for descriptors that
         // have one; HTTP-only files need no additional path/cwd capabilities.
-        if config.servers.values_mut().any(|server| {
-            server
-                .working_directory_mut()
-                .is_some_and(|path| path.is_relative())
-        }) {
+        if config
+            .servers
+            .values_mut()
+            .chain(
+                config
+                    .profiles
+                    .values_mut()
+                    .flat_map(|p| p.servers.values_mut()),
+            )
+            .any(|server| {
+                server
+                    .working_directory_mut()
+                    .is_some_and(|path| path.is_relative())
+            })
+        {
             let canonical = std::fs::canonicalize(path).map_err(|_| {
                 Error::local("ConfigurationError", "cannot resolve configuration path")
             })?;
@@ -148,7 +191,12 @@ impl<S: DeserializeOwned + ServerPaths> Configuration<S> {
                     "configuration has no parent directory",
                 )
             })?;
-            for server in config.servers.values_mut() {
+            for server in config.servers.values_mut().chain(
+                config
+                    .profiles
+                    .values_mut()
+                    .flat_map(|p| p.servers.values_mut()),
+            ) {
                 if let Some(directory) = server.working_directory_mut()
                     && directory.is_relative()
                 {
@@ -157,6 +205,24 @@ impl<S: DeserializeOwned + ServerPaths> Configuration<S> {
             }
         }
         Ok(config)
+    }
+    pub fn default_profile(&self) -> &str {
+        self.default_profile.as_deref().unwrap_or("default")
+    }
+    /// Select one isolated server namespace. Legacy files represent default only.
+    pub fn select_profile(&mut self, name: &str) -> Result<()> {
+        if self.profiles.is_empty() && name == "default" {
+            return Ok(());
+        }
+        let profile = self.profiles.remove(name).ok_or_else(|| {
+            Error::local(
+                "ConfigurationError",
+                format!("configuration profile '{name}' does not exist"),
+            )
+        })?;
+        self.servers = profile.servers;
+        self.profiles.clear();
+        Ok(())
     }
     pub fn server(&self, alias: &str) -> Result<&S> {
         self.servers
@@ -169,7 +235,14 @@ pub fn validate_alias(alias: &str) -> Result<()> {
     if alias.is_empty()
         || matches!(
             alias,
-            "tools" | "call" | "servers" | "complete" | "completions" | "__complete" | "auth"
+            "tools"
+                | "call"
+                | "servers"
+                | "complete"
+                | "completions"
+                | "__complete"
+                | "auth"
+                | "profiles"
         )
         || !alias
             .chars()

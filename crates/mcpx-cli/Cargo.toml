@@ -21,6 +21,8 @@ serde = { workspace = true }
 [target.'cfg(not(all(target_os = "wasi", target_env = "p2")))'.dependencies]
 mcpx = { path = "../mcpx", features = ["native"] }
 tokio = { workspace = true }
+toml_edit = "0.25"
+tempfile = "3"
 
 [target.'cfg(all(target_os = "wasi", target_env = "p2"))'.dependencies]
 mcpx = { path = "../mcpx", features = ["wasi"] }

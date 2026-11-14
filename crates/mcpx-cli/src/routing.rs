@@ -12,6 +12,18 @@ pub enum Route {
         bash_current: Option<crate::shell::BashWord>,
     },
     Servers,
+    Profiles,
+    #[cfg_attr(all(target_os = "wasi", target_env = "p2"), allow(dead_code))]
+    UseProfile {
+        name: String,
+    },
+    #[cfg_attr(all(target_os = "wasi", target_env = "p2"), allow(dead_code))]
+    Add {
+        name: String,
+        url: Option<String>,
+        command: Vec<String>,
+        credential: Option<String>,
+    },
     // Native UI fields are parsed on WASI only to return a clear capability error.
     #[cfg_attr(all(target_os = "wasi", target_env = "p2"), allow(dead_code))]
     Auth {
@@ -51,7 +63,7 @@ pub struct Invocation {
 impl Invocation {
     pub fn alias(&self) -> Option<&str> {
         match &self.route {
-            Route::Servers => None,
+            Route::Servers | Route::Profiles | Route::UseProfile { .. } | Route::Add { .. } => None,
             Route::Auth { alias, .. } => alias.as_deref(),
             Route::Shell { alias, .. }
             | Route::Tools { alias }
@@ -73,16 +85,28 @@ impl Invocation {
     }
 }
 
-pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
-    let help = "mcpx --config mcpx.toml SERVER TOOL [OPTIONS]\nmcpx tools SERVER\nmcpx servers list\nmcpx auth login|status|logout SERVER [--client-id ID] [--no-browser] [--store keyring|file]\nmcpx call SERVER TOOL --args JSON\nmcpx complete SERVER --line 'TOOL --par' [--cursor UTF8_BYTES]\nmcpx --url ENDPOINT TOOL [OPTIONS]\nmcpx completions bash|zsh|fish\nGlobal options precede the route; use TOOL --help for tool parameters.";
+/// Native defaults follow the nearest project configuration, from cwd to root.
+pub(crate) fn default_config() -> PathBuf {
+    #[cfg(not(all(target_os = "wasi", target_env = "p2")))]
+    if let Ok(directory) = std::env::current_dir() {
+        for ancestor in directory.ancestors() {
+            let candidate = ancestor.join("mcpx.toml");
+            if candidate.is_file() {
+                return candidate;
+            }
+        }
+    }
+    "mcpx.toml".into()
+}
+
+fn cli_command(is_wasi: bool) -> Command {
     let help = if is_wasi {
-        format!(
-            "{help}\nWASI HTTP: files and environment require host grants; child-process transport is unavailable."
-        )
+        "Use SERVER TOOL or --url ENDPOINT TOOL for shorthand calls.\nWASI HTTP requires host grants for files and environment."
     } else {
-        help.into()
+        "Use SERVER TOOL or --url ENDPOINT TOOL for shorthand calls. Use call --help for explicit calls."
     };
-    let matches = Command::new("mcpx")
+    Command::new("mcpx")
+        .arg_required_else_help(true)
         .version(env!("CARGO_PKG_VERSION"))
         .about(if is_wasi {
             "Bind and call remote MCP tools using WASI HTTP"
@@ -93,13 +117,15 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
         .arg(
             Arg::new("profile")
                 .long("profile")
-                .value_name("ACCOUNT")
-                .help("OAuth account profile (default: default)"),
+                .global(true)
+                .value_name("PROFILE")
+                .help("Configuration and OAuth profile (overrides saved default)"),
         )
         .arg(
             Arg::new("config")
                 .long("config")
                 .value_name("FILE")
+                .help("Override automatic mcpx.toml discovery from the current directory upward")
                 .conflicts_with("url"),
         )
         .arg(Arg::new("protocol").long("protocol").value_parser([
@@ -132,25 +158,185 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
                 .value_name("FILE")
                 .help("Preloaded uri/schema_json resource records; no automatic retrieval"),
         )
+        .subcommand(
+            Command::new("tools")
+                .about("List a server's tools")
+                .arg(Arg::new("server").value_name("SERVER")),
+        )
+        .subcommand(
+            Command::new("servers")
+                .about("Manage configured servers")
+                .subcommand_required(true)
+                .arg_required_else_help(true)
+                .subcommand(Command::new("list").about("List configured servers"))
+                .subcommand(
+                    Command::new("add")
+                        .about("Save a server in the selected configuration profile")
+                        .arg(Arg::new("name").required(true))
+                        .arg(
+                            Arg::new("endpoint")
+                                .long("url")
+                                .conflicts_with("command")
+                                .required_unless_present("command"),
+                        )
+                        .arg(
+                            Arg::new("credential")
+                                .long("credential")
+                                .requires("endpoint"),
+                        )
+                        .arg(
+                            Arg::new("command")
+                                .num_args(1..)
+                                .trailing_var_arg(true)
+                                .required_unless_present("endpoint"),
+                        ),
+                ),
+        )
+        .subcommand(
+            Command::new("profiles")
+                .about("List profiles or choose the saved default")
+                .arg_required_else_help(true)
+                .subcommand_required(true)
+                .subcommand(Command::new("list").about("List configuration profiles"))
+                .subcommand(
+                    Command::new("use")
+                        .about("Save the default profile in this configuration")
+                        .arg(Arg::new("name").required(true)),
+                ),
+        )
+        .subcommand(
+            Command::new("auth")
+                .about("Manage OAuth accounts")
+                .subcommand_required(true)
+                .arg_required_else_help(true)
+                .subcommands(["login", "status", "logout"].map(|action| {
+                    Command::new(action)
+                        .about(match action {
+                            "login" => "Sign in to a server",
+                            "status" => "Show account status",
+                            _ => "Sign out of a server",
+                        })
+                        .arg(Arg::new("server").value_name("SERVER"))
+                        .arg(Arg::new("client-id").long("client-id"))
+                        .arg(
+                            Arg::new("redirect-port")
+                                .long("redirect-port")
+                                .value_parser(clap::value_parser!(u16)),
+                        )
+                        .arg(
+                            Arg::new("scope")
+                                .long("scope")
+                                .action(clap::ArgAction::Append),
+                        )
+                        .arg(
+                            Arg::new("no-browser")
+                                .long("no-browser")
+                                .action(clap::ArgAction::SetTrue),
+                        )
+                        .arg(
+                            Arg::new("store")
+                                .long("store")
+                                .value_parser(["keyring", "file"]),
+                        )
+                })),
+        )
+        .subcommand(
+            Command::new("call")
+                .about("Call a tool: call SERVER TOOL [OPTIONS]; omit SERVER with --url")
+                .arg(
+                    Arg::new("arguments")
+                        .value_name("SERVER_OR_TOOL")
+                        .num_args(1..)
+                        .trailing_var_arg(true),
+                ),
+        )
+        .subcommand(
+            Command::new("complete")
+                .about("Complete a tool command line")
+                .arg(Arg::new("server").value_name("SERVER"))
+                .arg(
+                    Arg::new("line")
+                        .long("line")
+                        .required(true)
+                        .allow_hyphen_values(true),
+                )
+                .arg(
+                    Arg::new("cursor")
+                        .long("cursor")
+                        .value_name("UTF8_BYTES")
+                        .value_parser(clap::value_parser!(u64)),
+                ),
+        )
+        .subcommand(
+            Command::new("completions")
+                .about("Print a shell completion script")
+                .arg(
+                    Arg::new("shell")
+                        .required(true)
+                        .value_parser(["bash", "zsh", "fish"]),
+                ),
+        )
         .allow_external_subcommands(true)
         .external_subcommand_value_parser(clap::value_parser!(String))
         .after_help(help)
-        .try_get_matches();
+}
+
+/// Render the deepest recognized command without loading configuration or connecting.
+pub(crate) fn usage_help(is_wasi: bool) -> String {
+    let mut command = cli_command(is_wasi);
+    command.build();
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    command_help(&mut command, &args)
+}
+
+fn command_help(command: &mut Command, args: &[String]) -> String {
+    let mut index = 0;
+    while let Some(word) = args.get(index) {
+        if word.starts_with('-') {
+            let flag = word.split('=').next().unwrap();
+            let takes_value = command.get_arguments().any(|arg| {
+                (arg.get_long()
+                    .is_some_and(|name| flag == format!("--{name}"))
+                    || arg
+                        .get_short()
+                        .is_some_and(|name| flag == format!("-{name}")))
+                    && arg.get_action().takes_values()
+            });
+            index += if takes_value && !word.contains('=') {
+                2
+            } else {
+                1
+            };
+            continue;
+        }
+        if let Some(child) = command.find_subcommand_mut(word) {
+            return command_help(child, &args[index + 1..]);
+        }
+        break;
+    }
+    command.render_long_help().to_string()
+}
+
+pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
+    let mut command = cli_command(is_wasi);
+    let matches = command.clone().try_get_matches();
     let matches = match matches {
         Ok(value) => value,
         Err(error)
             if matches!(
                 error.kind(),
-                clap::error::ErrorKind::DisplayHelp | clap::error::ErrorKind::DisplayVersion
+                clap::error::ErrorKind::DisplayHelp
+                    | clap::error::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
+                    | clap::error::ErrorKind::DisplayVersion
             ) =>
         {
             print!("{error}");
             return Ok(None);
         }
-        Err(_) => {
+        Err(error) => {
             return Err(Error::local(
-                "CommandParseError",
-                "invalid command; use --help",
+                "CliUsage",
+                format!("{error}\n{}", usage_help(is_wasi)),
             ));
         }
     };
@@ -160,10 +346,70 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
             "a server, tool or management command is required",
         )
     })?;
-    let argv: Vec<String> = trailing
-        .get_many::<String>("")
-        .map(|values| values.cloned().collect())
-        .unwrap_or_default();
+    // Keep dynamic tool arguments opaque; management commands are validated by clap.
+    let values = |m: &clap::ArgMatches, id: &str| -> Vec<String> {
+        m.get_raw(id)
+            .map(|v| v.map(|s| s.to_string_lossy().into_owned()).collect())
+            .unwrap_or_default()
+    };
+    let argv: Vec<String> = match route {
+        "profiles" => {
+            if matches.get_one::<String>("url").is_some() {
+                return Err(Error::local(
+                    "CliUsage",
+                    "profiles commands require a configuration file; omit --url\nUsage: mcpx profiles <list|use NAME>",
+                ));
+            }
+            let (action, m) = trailing.subcommand().unwrap();
+            let route = if action == "use" {
+                Route::UseProfile {
+                    name: m.get_one::<String>("name").unwrap().clone(),
+                }
+            } else {
+                Route::Profiles
+            };
+            return Ok(Some(invocation(&matches, route)));
+        }
+        "servers" => {
+            if let Some(("add", m)) = trailing.subcommand() {
+                let route = Route::Add {
+                    name: m.get_one::<String>("name").unwrap().clone(),
+                    url: m.get_one::<String>("endpoint").cloned(),
+                    credential: m.get_one::<String>("credential").cloned(),
+                    command: values(m, "command"),
+                };
+                return Ok(Some(invocation(&matches, route)));
+            }
+            vec!["list".into()]
+        }
+        "tools" => values(trailing, "server"),
+        "call" => values(trailing, "arguments"),
+        "completions" => values(trailing, "shell"),
+        "complete" => {
+            let mut args = values(trailing, "server");
+            for key in ["line", "cursor"] {
+                for value in values(trailing, key) {
+                    args.extend([format!("--{key}"), value]);
+                }
+            }
+            args
+        }
+        "auth" => {
+            let (action, m) = trailing.subcommand().unwrap();
+            let mut args = vec![action.into()];
+            args.extend(values(m, "server"));
+            for key in ["client-id", "redirect-port", "scope", "store"] {
+                for value in values(m, key) {
+                    args.extend([format!("--{key}"), value]);
+                }
+            }
+            if m.get_flag("no-browser") {
+                args.push("--no-browser".into());
+            }
+            args
+        }
+        _ => values(trailing, ""),
+    };
     if route == "completions" {
         crate::shell::print_script(&argv)?;
         return Ok(None);
@@ -345,6 +591,15 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
             arguments: argv,
         }
     } else {
+        if matches.get_one::<String>("config").is_none() && !default_config().is_file() {
+            return Err(Error::local(
+                "CliUsage",
+                format!(
+                    "error: unknown command '{route}'\n\n{}",
+                    command.render_long_help()
+                ),
+            ));
+        }
         let (tool, arguments) = argv
             .split_first()
             .ok_or_else(|| Error::local("CommandParseError", "expected SERVER TOOL"))?;
@@ -354,12 +609,16 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
             arguments: arguments.into(),
         }
     };
-    Ok(Some(Invocation {
-        url,
+    Ok(Some(invocation(&matches, route)))
+}
+
+fn invocation(matches: &clap::ArgMatches, route: Route) -> Invocation {
+    Invocation {
+        url: matches.get_one::<String>("url").cloned(),
         config: matches
             .get_one::<String>("config")
             .map(PathBuf::from)
-            .unwrap_or_else(|| "mcpx.toml".into()),
+            .unwrap_or_else(default_config),
         selected: matches.get_one::<String>("protocol").map(|v| protocol(v)),
         output: matches.get_one::<String>("output").unwrap().clone(),
         timeout: Duration::from_secs(*matches.get_one::<u64>("timeout").unwrap()),
@@ -367,5 +626,5 @@ pub fn parse(is_wasi: bool) -> Result<Option<Invocation>> {
         profile: matches.get_one::<String>("profile").cloned(),
         schema_registry: matches.get_one::<String>("schema-registry").cloned(),
         route,
-    }))
+    }
 }

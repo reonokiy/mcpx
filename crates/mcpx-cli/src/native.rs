@@ -11,12 +11,29 @@ pub(crate) async fn main() -> ExitCode {
 }
 
 async fn run() -> mcpx::Result<u8> {
-    let Some(invocation) = crate::routing::parse(false)? else {
+    let Some(mut invocation) = crate::routing::parse(false)? else {
         return Ok(0);
     };
+    if let crate::routing::Route::UseProfile { name } = &invocation.route {
+        return crate::config_write::use_profile(&invocation, name);
+    }
+    if let crate::routing::Route::Add { .. } = &invocation.route {
+        return crate::config_write::add(&invocation);
+    }
     let output = invocation.output.as_str();
     let configuration = if invocation.url.is_none() {
-        Some(Config::load(&invocation.config)?)
+        Some({
+            let mut config = Config::load(&invocation.config)?;
+            if matches!(invocation.route, crate::routing::Route::Profiles) {
+                crate::shared::print_profiles(&config, invocation.profile.as_deref(), output);
+                return Ok(0);
+            }
+            let profile = invocation
+                .profile
+                .get_or_insert_with(|| config.default_profile().to_owned());
+            config.select_profile(profile)?;
+            config
+        })
     } else {
         None
     };
@@ -46,15 +63,7 @@ async fn run() -> mcpx::Result<u8> {
             _ => None,
         }
     };
-    let reference = match configured {
-        Some(mcpx::native::ServerConfig::Http { credential, .. }) => credential.as_deref(),
-        _ => None,
-    };
-    let profile = invocation
-        .profile
-        .as_deref()
-        .or_else(|| reference.and_then(|r| r.strip_prefix("oauth:")))
-        .unwrap_or("default");
+    let profile = invocation.profile.as_deref().unwrap_or("default");
     if let crate::routing::Route::Auth {
         action,
         client_id,

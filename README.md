@@ -91,6 +91,76 @@ Typed Rust arguments, JSON objects, and argv are available as well. The caller o
 
 Explore the [browser CLI example](examples/web-worker/) and [WASI Component example](examples/wasi-component/) for complete embedding setups.
 
+The native CLI searches for `mcpx.toml` in the current directory and then each
+parent directory, using the nearest file. `--config FILE` overrides this search.
+For example, `mcpx tools demo` and `mcpx demo echo --message hello` work from
+any subdirectory of the configured project.
+
+Configuration profiles own independent server names and OAuth login state:
+
+```toml
+schema_version = 1
+
+[profiles.dev.servers.demo]
+transport = "http"
+url = "https://dev.example.com/mcp"
+
+[profiles.prod.servers.demo]
+transport = "http"
+url = "https://prod.example.com/mcp"
+```
+
+```sh
+mcpx --profile dev servers add remote --url https://example.com/mcp
+mcpx --profile dev servers add local -- node server.mjs --read-only
+mcpx --profile dev servers list
+mcpx --profile dev tools demo
+mcpx --profile dev auth login demo
+```
+
+List or switch profiles with:
+
+```sh
+mcpx profiles list
+mcpx profiles use dev
+```
+
+`profiles use` saves `default_profile = "dev"` in the discovered configuration.
+`profiles list` marks the saved default and the profile selected for this command.
+Explicit `--profile NAME` overrides the saved choice without changing it.
+Without a saved choice, the default is `default`.
+The selected profile also scopes OAuth login, status, logout,
+and automatic token refresh. Tokens stay in the existing credential store;
+configuration files contain server settings and credential references only.
+`servers add` writes to the discovered configuration (or creates `./mcpx.toml`),
+creates the selected profile if needed, and rejects duplicate names within it.
+Use `--config FILE` to choose the destination. Legacy `[servers.*]` files remain
+readable as the default profile; adding a server migrates them into
+`[profiles.default.servers.*]` while preserving comments.
+
+## Development
+
+Install [mise](https://mise.jdx.dev/), then run:
+
+```sh
+mise install
+mise run setup
+mise run build
+mise run check
+mise run test
+mise run test:cli
+mise run build:wasm
+```
+
+The mise configuration pins Rust 1.100.0 (with rustfmt, clippy and both Wasm
+targets), Node 24, Python 3.12 and Wasmtime 50.0.1. `rust-toolchain.toml`
+uses the same Rust version for editors and direct Cargo use. The library MSRV
+remains Rust 1.88. `setup` installs locked npm dependencies, the matching
+wasm-bindgen CLI and Playwright Chromium. Linux browser tests may additionally
+need system libraries installed with `mise exec -- npx playwright install-deps chromium`.
+Use `mise exec -- <command>` for other development commands, or activate mise
+in your shell. WASI smoke tests use the mise-managed Wasmtime through `WASMTIME`.
+
 ## Documentation & support
 
 To build the WebAssembly bindings from source, install the Rust targets

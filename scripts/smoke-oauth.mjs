@@ -49,7 +49,7 @@ for(const mode of ["registered","dcr","cimd","well-known","oidc","legacy"]){
   }catch(e){failure??=e;res.writeHead(500).end();}
  });
  await new Promise(r=>server.listen(0,"127.0.0.1",r));origin=`http://127.0.0.1:${server.address().port}`;resource=`${origin}/mcp`;
- const config=join(directory,"mcpx.toml");await writeFile(config,`schema_version=1\n[servers.demo]\ntransport="http"\nurl="${resource}"\ncredential="oauth"\nprotocol="${mode==="legacy"?"2025-11-25":"2026-07-28"}"\n`);
+ const config=join(directory,"mcpx.toml");await writeFile(config,`schema_version=1\n${["default","another-user"].map(profile=>`[profiles.${profile}.servers.demo]\ntransport="http"\nurl="${resource}"\ncredential="oauth"\nprotocol="${mode==="legacy"?"2025-11-25":"2026-07-28"}"\n`).join("")}`);
  const base=["--config",config];const run=(...args)=>exec(cli,[...base,...args],{env,timeout:15000});
  try{
   await assert.rejects(run("demo","echo","--message","before-login"),e=>e.code===4&&e.stderr.includes("LoginRequired"));assert.equal(seen.length,0);
@@ -68,6 +68,10 @@ for(const mode of ["registered","dcr","cimd","well-known","oidc","legacy"]){
   const replies=await Promise.all([run("demo","echo","--message","refresh-one"),run("demo","echo","--message","refresh-two")]);assert.ok(replies[0].stdout.includes("refresh-one"));assert.ok(replies[1].stdout.includes("refresh-two"));
   assert.equal(refreshes,1,"Concurrent CLI processes must share one rotating refresh");const renewed=JSON.parse(await readFile(path));assert.equal(renewed.context_id,initial.context_id);assert.equal(renewed.tokens.refresh_token,"refresh-1");assert.ok(seen.filter(r=>r.method==="tools/call").slice(-2).every(r=>r.token==="Bearer access-1"));
   const status=await exec(cli,["--config",config,"--output","json","auth","status","demo"],{env});assert.equal(JSON.parse(status.stdout).logged_in,true);assert.ok(!status.stdout.includes("access-1")&&!status.stdout.includes("refresh-1"));
+  await run("profiles","use","another-user");
+  const savedStatus=await run("--output","json","auth","status","demo");
+  assert.equal(JSON.parse(savedStatus.stdout).logged_in,false,"Saved default must scope OAuth status");
+  await run("profiles","use","default");
   const other=["--config",config,"--profile","another-user"];
   const otherStatus=await exec(cli,[...other,"--output","json","auth","status","demo"],{env});assert.equal(JSON.parse(otherStatus.stdout).logged_in,false);
   await assert.rejects(exec(cli,[...other,"demo","echo","--message","wrong-user"],{env}),e=>e.code===4&&e.stderr.includes("LoginRequired"));
