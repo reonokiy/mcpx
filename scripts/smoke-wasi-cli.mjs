@@ -33,7 +33,12 @@ async function listen(fixture) {fixtures.push(fixture);await new Promise(r=>fixt
 try {
   assert.match(ok(await execute(cli,["--help"])),/WASI HTTP/);
   assert.match(ok(await execute(cli,["complete","--help"])),/--line/);
-  failed(await execute(cli,["echo","--message","missing-url"]),3,"ConfigurationError");
+  const missingRoute=await execute(cli,["echo","--message","missing-url"]);
+  assert.equal(missingRoute.code,2);
+  assert.equal(missingRoute.stdout,"");
+  assert.match(missingRoute.stderr,/Usage: mcpx/);
+  assert.doesNotMatch(missingRoute.stderr,/"execution_certainty"/);
+  failed(await execute(cli,["call","missing","echo"]),3,"ConfigurationError");
   await writeFile(join(directory,"args.json"),'{"message":"wasi-file"}');
   await writeFile(join(directory,"large.json"),JSON.stringify({message:"x".repeat(192*1024)}));
   await writeFile(join(directory,"schemas.json"),JSON.stringify(schemaResources().map(r=>({uri:r.uri,schema_json:r.schemaJson}))));
