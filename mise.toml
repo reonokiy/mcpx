@@ -1,0 +1,37 @@
+[tools]
+rust = { version = "1.100.0", profile = "minimal", components = "rustfmt,clippy", targets = "wasm32-unknown-unknown,wasm32-wasip2" }
+node = "24.22.3"
+python = "3.12.16"
+"github:bytecodealliance/wasmtime" = "50.0.1"
+
+[env]
+WASMTIME = "wasmtime"
+
+[tasks.setup]
+description = "Install JS dependencies, matching Wasm bindings and browser"
+run = [
+  "npm ci --ignore-scripts",
+  "cargo install wasm-bindgen-cli --version 0.2.130 --locked --root target/tools",
+  "npx playwright install chromium",
+]
+
+[tasks.build]
+description = "Build the native CLI"
+run = "cargo build -p mcpx-cli --locked"
+
+[tasks."build:wasm"]
+description = "Build Web and Component runtimes"
+run = "bash scripts/build-wasm.sh"
+
+[tasks.check]
+description = "Check formatting and lint the workspace"
+run = ["cargo fmt --all --check", "cargo clippy --workspace --all-targets --locked -- -D warnings"]
+
+[tasks.test]
+description = "Run Rust workspace tests"
+run = "cargo test --workspace --locked"
+
+[tasks."test:cli"]
+description = "Run native CLI configuration and OAuth smoke tests"
+depends = ["build"]
+run = ["node scripts/smoke-config-cli.mjs native", "node scripts/smoke-profiles.mjs", "node scripts/smoke-oauth.mjs"]

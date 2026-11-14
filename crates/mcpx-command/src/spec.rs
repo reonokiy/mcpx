@@ -1,4 +1,4 @@
-use crate::{clean, projected_type, safe_name};
+use crate::{clean, clean_help, projected_type, safe_name};
 use clap::{Arg, ArgAction, Command};
 use mcpx_core::{ToolBinding, ToolDescriptor};
 use serde::Serialize;
@@ -32,7 +32,7 @@ impl CommandSpec {
     pub fn from_descriptor(tool: &ToolDescriptor) -> Self {
         let mut spec = Self {
             tool: tool.name.clone(),
-            description: clean(tool.description.as_deref().unwrap_or("")),
+            description: clean_help(tool.description.as_deref().unwrap_or("")),
             parameters: Vec::new(),
             json_only: Vec::new(),
         };
@@ -77,7 +77,7 @@ impl CommandSpec {
             spec.parameters.push(ParameterSpec {
                 name: name.clone(),
                 flag: format!("--{name}"),
-                description: clean(
+                description: clean_help(
                     schema
                         .get("description")
                         .and_then(Value::as_str)

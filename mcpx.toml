@@ -1,0 +1,11 @@
+schema_version = 1
+
+[profiles.default.servers.context7]
+transport = "http"
+url = "https://mcp.context7.com/mcp"
+protocol = "auto"
+
+[profiles.default.servers.treg]
+transport = "http"
+url = "https://treg.to/mcp/"
+protocol = "auto"

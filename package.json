@@ -6,7 +6,7 @@
     "binaryen": "132.0.0",
     "playwright": "1.65.0"
   },
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "private": true,
   "description": "mcpx WebAssembly build and integration tests",
   "license": "MIT OR Apache-2.0",

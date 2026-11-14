@@ -54,3 +54,33 @@ fn help_does_not_require_business_arguments_and_inputs_do_not_silently_coerce() 
     assert!(prepare_string(&tool, r#"--query x --args '{"query":"y"}'"#).is_err());
     assert!(prepare_string(&tool, "--query x --query y").is_err());
 }
+
+#[test]
+fn help_preserves_description_paragraphs_without_exposing_terminal_controls() {
+    let descriptor: ToolDescriptor = serde_json::from_value(json!({
+        "name": "search",
+        "description": "First paragraph.\r\n\r\nSecond paragraph.\nEscape: \u{1b}[31m literal: \\n",
+        "inputSchema": {"type":"object", "properties": {
+            "query": {"type":"string", "description":"First line.\nSecond line.\u{7}"}
+        }}
+    }))
+    .unwrap();
+    let binding = ToolBinding::new(descriptor).unwrap();
+    let PreparedCommand::Help(help) = prepare_string(&binding, "--help").unwrap() else {
+        panic!()
+    };
+    assert!(
+        help.contains("First paragraph.\n\nSecond paragraph."),
+        "{help}"
+    );
+    assert!(!help.contains("First paragraph.\\r\\n"));
+    assert!(!help.contains('\u{1b}'));
+    assert!(!help.contains('\u{7}'));
+    assert!(help.contains("\\u{1b}[31m"), "{help}");
+    assert!(help.contains("literal: \\n"), "{help}");
+    let spec = mcpx_command::CommandSpec::from_binding(&binding);
+    assert_eq!(
+        spec.parameters[0].description,
+        "First line.\nSecond line.\\u{7}"
+    );
+}

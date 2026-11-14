@@ -1,12 +1,12 @@
 schema_version = 1
 
-[servers.remote]
+[profiles.default.servers.remote]
 transport = "http"
 url = "https://example.com/mcp"
 protocol = "auto"
 credential = "env:MCP_TOKEN"
 
-[servers.demo]
+[profiles.default.servers.demo]
 transport = "stdio"
 program = "python3"
 args = ["tests/fixtures/stdio_server.py"]

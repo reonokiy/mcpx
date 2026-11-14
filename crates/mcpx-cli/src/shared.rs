@@ -49,6 +49,109 @@ pub(crate) fn print_json(value: &impl serde::Serialize) {
     );
 }
 
+pub(crate) fn print_profiles<S>(
+    config: &mcpx::config::Configuration<S>,
+    selected: Option<&str>,
+    output: &str,
+) {
+    let default = config.default_profile.as_deref().unwrap_or("default");
+    let selected = selected.unwrap_or(default);
+    let names: Vec<_> = if config.profiles.is_empty() {
+        vec!["default"]
+    } else {
+        config.profiles.keys().map(String::as_str).collect()
+    };
+    let profiles: Vec<_> = names.into_iter().map(|name| serde_json::json!({"name":name,"default":name == default,"selected":name == selected})).collect();
+    if output == "text" {
+        for profile in profiles {
+            println!(
+                "{}{}{}",
+                profile["name"].as_str().unwrap(),
+                if profile["default"] == true {
+                    " (default)"
+                } else {
+                    ""
+                },
+                if profile["selected"] == true {
+                    " *"
+                } else {
+                    ""
+                }
+            );
+        }
+    } else {
+        print_json(&profiles);
+    }
+}
+
+/// Render full descriptions as separate, wrapped blocks rather than tabular rows.
+fn tool_listing(tools: &[&mcpx::ToolDescriptor], width: usize) -> String {
+    use std::fmt::Write;
+    let mut output = String::new();
+    let width = width.saturating_sub(2).max(20);
+    for tool in tools {
+        writeln!(output, "{}", safe(&tool.name).replace(['\n', '\t'], " ")).unwrap();
+        let description = safe(tool.description.as_deref().unwrap_or(""));
+        for line in description.lines() {
+            if line.trim().is_empty() {
+                output.push('\n');
+                continue;
+            }
+            let mut column = 0;
+            for word in line.split_whitespace() {
+                let length = word.chars().count();
+                if column != 0 && column + 1 + length > width {
+                    output.push('\n');
+                    column = 0;
+                }
+                if column == 0 {
+                    output.push_str("  ");
+                } else {
+                    output.push(' ');
+                    column += 1;
+                }
+                // Keep long URLs and identifiers intact; terminals can wrap them.
+                output.push_str(word);
+                column += length;
+            }
+            output.push('\n');
+        }
+        output.push('\n');
+    }
+    output
+}
+
+pub(crate) fn print_tools(tools: &[&mcpx::ToolDescriptor]) {
+    let width = std::env::var("COLUMNS")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(88)
+        .clamp(40, 160);
+    print!("{}", tool_listing(tools, width));
+}
+
+pub(crate) fn print_server_help(
+    invocation: &crate::routing::Invocation,
+    tools: &[&mcpx::ToolDescriptor],
+) {
+    let server = invocation.alias().unwrap_or("SERVER");
+    let mut command = clap::Command::new(safe(server))
+        .bin_name(format!("mcpx {}", safe(server)))
+        .about("Call a tool on this MCP server")
+        .subcommand_value_name("TOOL")
+        .disable_help_subcommand(true)
+        .subcommand_required(true)
+        .after_help("Use TOOL --help to show that tool's parameters.");
+    for tool in tools {
+        let spec = mcpx::command::CommandSpec::from_descriptor(tool);
+        command = command.subcommand(
+            clap::Command::new(safe(&spec.tool))
+                .about(spec.description.lines().next().unwrap_or("").to_owned()),
+        );
+    }
+    print!("{}", command.render_help());
+}
+
 pub(crate) fn print_servers<'a>(
     servers: impl Iterator<Item = (&'a str, &'static str)>,
     output: &str,
@@ -128,6 +231,18 @@ pub(crate) fn status(result: mcpx::Result<u8>) -> u8 {
     match result {
         Ok(code) => code,
         Err(error) => {
+            if error.code == "CliUsage" {
+                eprintln!("{}", error.message);
+                return 2;
+            }
+            if error.code == "CommandParseError" {
+                eprintln!(
+                    "error: {}\n\n{}",
+                    error.message,
+                    crate::routing::usage_help(cfg!(all(target_os = "wasi", target_env = "p2")))
+                );
+                return 2;
+            }
             eprintln!("{}", serde_json::to_string(&error).unwrap());
             match error.code.as_str() {
                 "ValidationFailed"
@@ -234,4 +349,33 @@ pub(crate) fn schema_registry(file: &str) -> mcpx::Result<mcpx::SchemaRegistry> 
     let text = std::str::from_utf8(&bytes)
         .map_err(|_| Error::local("ConfigurationError", "schema bundle must be UTF-8 JSON"))?;
     mcpx::SchemaRegistry::from_json(text)
+}
+
+#[cfg(test)]
+mod tool_listing_tests {
+    #[test]
+    fn full_descriptions_keep_paragraphs_and_tool_boundaries() {
+        let first: mcpx::ToolDescriptor = serde_json::from_value(serde_json::json!({
+            "name":"first", "description":"A paragraph with enough words to wrap over multiple lines without losing any of its content.\n\nSecond paragraph: \u{1b}[31m end marker.", "inputSchema":{"type":"object"}
+        })).unwrap();
+        let second: mcpx::ToolDescriptor = serde_json::from_value(serde_json::json!({
+            "name":"second", "description":"Another tool.", "inputSchema":{"type":"object"}
+        }))
+        .unwrap();
+        let output = super::tool_listing(&[&first, &second], 48);
+        assert!(output.starts_with("first\n  A paragraph"));
+        assert!(output.contains("\n\n  Second paragraph:"));
+        assert!(output.contains("end marker.\n\nsecond\n  Another tool."));
+        assert!(!output.contains('\u{1b}'));
+        for word in first
+            .description
+            .as_ref()
+            .unwrap()
+            .split_whitespace()
+            .filter(|w| !w.contains('\u{1b}'))
+        {
+            assert!(output.contains(word), "missing word: {word}");
+        }
+        assert!(output.lines().all(|line| line.chars().count() <= 48));
+    }
 }

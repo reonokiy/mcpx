@@ -1,4 +1,6 @@
 #[cfg(not(all(target_os = "wasi", target_env = "p2")))]
+mod config_write;
+#[cfg(not(all(target_os = "wasi", target_env = "p2")))]
 mod native;
 mod routing;
 mod shared;

@@ -118,6 +118,15 @@ fn clean(text: &str) -> String {
         .collect()
 }
 
+// Help supports paragraphs; keep terminal controls escaped within each line.
+fn clean_help(text: &str) -> String {
+    text.replace("\r\n", "\n")
+        .split('\n')
+        .map(clean)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn projected_type(schema: &Value) -> Option<&str> {
     if ["$ref", "oneOf", "anyOf", "allOf", "if"]
         .iter()

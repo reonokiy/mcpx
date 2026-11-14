@@ -20,7 +20,14 @@ const OPTIONS: &[&str] = &[
     "--help",
     "--version",
 ];
-const ROUTES: &[&str] = &["servers", "tools", "call", "complete", "completions"];
+const ROUTES: &[&str] = &[
+    "servers",
+    "profiles",
+    "tools",
+    "call",
+    "complete",
+    "completions",
+];
 
 pub fn print_script(argv: &[String]) -> Result<()> {
     if argv == ["--help"] || argv == ["-h"] {
@@ -221,12 +228,18 @@ fn local(
     );
 }
 
-fn aliases(path: &Path) -> Vec<String> {
+fn aliases(path: &Path, profile: Option<&str>) -> Vec<String> {
     let Ok(path) = crate::shared::file_path(path) else {
         return Vec::new();
     };
     mcpx::config::Config::load_unresolved(&path)
-        .map(|config| config.servers.into_keys().collect())
+        .and_then(|mut config| {
+            let profile = profile
+                .unwrap_or_else(|| config.default_profile())
+                .to_owned();
+            config.select_profile(&profile)?;
+            Ok(config.servers.into_keys().collect())
+        })
         .unwrap_or_default()
 }
 
@@ -294,7 +307,7 @@ fn plan(
         return Ok(None);
     }
     let mut invocation = Invocation {
-        config: "mcpx.toml".into(),
+        config: crate::routing::default_config(),
         url: None,
         selected: None,
         output: "shell".into(),
@@ -377,7 +390,7 @@ fn plan(
                 ROUTES
                     .iter()
                     .map(|v| (*v).into())
-                    .chain(aliases(&invocation.config)),
+                    .chain(aliases(&invocation.config, invocation.profile.as_deref())),
                 &current,
                 bash_current.as_ref(),
             );
@@ -393,9 +406,32 @@ fn plan(
         return Ok(Some(invocation));
     };
     match route.as_str() {
+        "profiles" => {
+            if rest.is_empty() {
+                local(
+                    ["list".into(), "use".into()],
+                    &current,
+                    bash_current.as_ref(),
+                );
+            } else if rest == ["use"]
+                && let Ok(config) = mcpx::config::Config::load_unresolved(&invocation.config)
+            {
+                let names = if config.profiles.is_empty() {
+                    vec!["default".to_owned()]
+                } else {
+                    config.profiles.into_keys().collect()
+                };
+                local(names, &current, bash_current.as_ref());
+            }
+            return Ok(None);
+        }
         "servers" if invocation.url.is_none() => {
             if rest.is_empty() {
-                local(["list".into()], &current, bash_current.as_ref());
+                local(
+                    ["list".into(), "add".into()],
+                    &current,
+                    bash_current.as_ref(),
+                );
             }
             return Ok(None);
         }
@@ -410,7 +446,11 @@ fn plan(
             return Ok(None);
         }
         "tools" | "complete" if rest.is_empty() && invocation.url.is_none() => {
-            local(aliases(&invocation.config), &current, bash_current.as_ref());
+            local(
+                aliases(&invocation.config, invocation.profile.as_deref()),
+                &current,
+                bash_current.as_ref(),
+            );
             return Ok(None);
         }
         "tools" | "__complete" | "complete" => return Ok(None),
@@ -420,7 +460,11 @@ fn plan(
     let (alias, args) = if route == "call" {
         if named {
             let Some((alias, args)) = rest.split_first() else {
-                local(aliases(&invocation.config), &current, bash_current.as_ref());
+                local(
+                    aliases(&invocation.config, invocation.profile.as_deref()),
+                    &current,
+                    bash_current.as_ref(),
+                );
                 return Ok(None);
             };
             (Some(alias.clone()), args.to_vec())

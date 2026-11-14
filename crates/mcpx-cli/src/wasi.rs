@@ -14,22 +14,38 @@ pub(crate) fn main() -> std::process::ExitCode {
     std::process::ExitCode::from(code)
 }
 async fn run() -> mcpx::Result<u8> {
-    let Some(invocation) = crate::routing::parse(true)? else {
+    let Some(mut invocation) = crate::routing::parse(true)? else {
         return Ok(0);
     };
-    if matches!(invocation.route, crate::routing::Route::Auth { .. }) {
+    if matches!(
+        invocation.route,
+        crate::routing::Route::Auth { .. }
+            | crate::routing::Route::Add { .. }
+            | crate::routing::Route::UseProfile { .. }
+    ) {
         return Err(Error::local(
             "CapabilityUnavailable",
-            "interactive OAuth login is currently available in the native CLI; WASI hosts can inject credentials",
+            "OAuth account management and configuration writes require the native CLI; WASI hosts can inject credentials",
         ));
     }
     let output = invocation.output.as_str();
     let configuration = if invocation.url.is_none() {
         // Stdio routes are listed but rejected before dispatch on this host.
         // Do not require canonicalization for their unused working directories.
-        Some(mcpx::config::Config::load_unresolved(
-            &crate::shared::file_path(&invocation.config)?,
-        )?)
+        Some({
+            let mut config = mcpx::config::Config::load_unresolved(&crate::shared::file_path(
+                &invocation.config,
+            )?)?;
+            if matches!(invocation.route, crate::routing::Route::Profiles) {
+                crate::shared::print_profiles(&config, invocation.profile.as_deref(), output);
+                return Ok(0);
+            }
+            let profile = invocation
+                .profile
+                .get_or_insert_with(|| config.default_profile().to_owned());
+            config.select_profile(profile)?;
+            config
+        })
     } else {
         None
     };
@@ -67,7 +83,10 @@ async fn run() -> mcpx::Result<u8> {
         }
     };
     let tool = invocation.tool();
-    let listing = matches!(invocation.route, crate::routing::Route::Tools { .. });
+    let listing = matches!(
+        invocation.route,
+        crate::routing::Route::Tools { .. } | crate::routing::Route::ServerHelp { .. }
+    );
     let completion = match &invocation.route {
         crate::routing::Route::Complete { line, cursor, .. } => Some((line, *cursor)),
         _ => None,
@@ -153,16 +172,12 @@ async fn run() -> mcpx::Result<u8> {
         }
         if listing {
             let tools: Vec<_> = remote.machine().catalog().tools().collect();
+            if matches!(invocation.route, crate::routing::Route::ServerHelp { .. }) {
+                crate::shared::print_server_help(&invocation, &tools);
+                return Ok(0);
+            }
             match output {
-                "text" => {
-                    for tool in tools {
-                        println!(
-                            "{}\t{}",
-                            safe(&tool.name),
-                            safe(tool.description.as_deref().unwrap_or(""))
-                        );
-                    }
-                }
+                "text" => crate::shared::print_tools(&tools),
                 "ndjson-events" => println!("{}", json!({"type":"catalog","tools":tools})),
                 _ => print_json(&tools),
             }
